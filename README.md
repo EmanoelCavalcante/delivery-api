@@ -32,7 +32,7 @@ O projeto foi criado com foco em arquitetura limpa, escalabilidade e separação
 # 📁 Estrutura do Projeto
 
 ```bash
-src/main/java/com/pitsdogdelivery/pitsdogapi
+src/main/java/com/pitsdog/api
 │
 ├── categoria
 │   ├── controller
@@ -59,17 +59,26 @@ O projeto foi organizado seguindo separação por domínio, facilitando manuten�
 
 ## Categorias
 
-* Criar categoria
-* Buscar categorias
-* Atualizar categoria
-* Deletar categoria
+- Criar categoria
+- Listar categorias
+- Buscar categoria por ID
+- Atualizar categoria
+- Deletar categoria
+- Controle de categoria ativa/inativa
+- Organização por ordem de exibição
+- Campo de imagem para exibição no frontend
+
 
 ## Produtos
-
-* Estrutura preparada
-* DTOs organizados
-* Repository configurado
-* Separação de camadas
+- Criar produto
+- Listar produtos
+- Buscar produto por ID
+- Atualizar produto
+- Deletar produto
+- Relacionar produto com categoria
+- Controle de disponibilidade do produto
+- Campo de imagem do produto
+- Preço utilizando `BigDecimal`
 
 ---
 
@@ -87,6 +96,37 @@ O projeto foi organizado seguindo separação por domínio, facilitando manuten�
 ---
 
 # 📡 Endpoints
+
+## Produto
+```http
+POST /produtos
+```
+
+### Listar produtos
+
+```http
+GET /produtos
+```
+
+### Buscar produto por ID
+
+```http
+GET /produtos/{id}
+```
+
+### Atualizar produto
+
+```http
+PUT /produtos/{id}
+```
+
+### Deletar produto
+
+```http
+DELETE /produtos/{id}
+```
+
+---
 
 ## Categoria
 
@@ -139,7 +179,7 @@ cd pitsdog-api
 ## Configure o banco no `application.properties`
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/pitsdog
+spring.datasource.url=jdbc:postgresql://localhost:5432/pitsdog
 spring.datasource.username=SEU_USUARIO
 spring.datasource.password=SUA_SENHA
 
@@ -161,9 +201,7 @@ ou rode diretamente pela IDE.
 
 * [ ] Sistema de pedidos
 * [ ] Dashboard financeiro
-* [ ] Integração com Mercado Pago
 * [ ] Sistema administrativo
-* [ ] Autenticação JWT
 * [ ] Upload de imagens
 * [ ] Relatórios financeiros
 * [ ] Docker Compose
