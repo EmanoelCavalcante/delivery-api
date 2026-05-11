@@ -6,7 +6,6 @@ import com.pitsdog.api.categoria.dto.CategoriaRequestDTO;
 import com.pitsdog.api.categoria.dto.CategoriaResponseDTO;
 import com.pitsdog.api.categoria.service.CategoriaService;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

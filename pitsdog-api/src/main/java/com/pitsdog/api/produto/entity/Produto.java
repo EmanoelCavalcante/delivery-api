@@ -2,15 +2,11 @@ package com.pitsdog.api.produto.entity;
 
 import com.pitsdog.api.categoria.entity.Categoria;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "produto")
-@Getter
-@Setter
+@Table(name = "produtos")
 public class Produto {
 
     @Id
@@ -27,7 +23,7 @@ public class Produto {
     private String descricao;
 
     @Column(nullable = false)
-    private boolean ativo = true;
+    private Boolean disponivel = true;
 
     private String imageUrl;
 
@@ -35,19 +31,75 @@ public class Produto {
     @JoinColumn(name = "categoria_id", nullable = false)
     private Categoria categoria;
 
-    public Produto(Long id,
-                   String nome,
+    public Produto(String nome,
                    BigDecimal preco,
                    String descricao,
-                   boolean ativo,
                    String imageUrl,
                    Categoria categoria) {
-        this.id = id;
         this.nome = nome;
         this.preco = preco;
         this.descricao = descricao;
-        this.ativo = ativo;
+        this.disponivel = disponivel;
         this.imageUrl = imageUrl;
+        this.categoria = categoria;
+    }
+
+    public Produto() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public BigDecimal getPreco() {
+        return preco;
+    }
+
+    public void setPreco(BigDecimal preco) {
+        this.preco = preco;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
+    }
+
+    public Boolean getDisponivel() {
+        return disponivel;
+    }
+
+    public void setDisponivel(Boolean disponivel) {
+        this.disponivel = disponivel;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public Categoria getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(Categoria categoria) {
         this.categoria = categoria;
     }
 }

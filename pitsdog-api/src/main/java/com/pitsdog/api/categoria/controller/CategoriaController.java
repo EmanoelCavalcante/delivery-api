@@ -1,12 +1,12 @@
 package com.pitsdog.api.categoria.controller;
 
 
+import com.pitsdog.api.categoria.dto.CategoriaRequestDTO;
 import com.pitsdog.api.categoria.dto.CategoriaResponseDTO;
 import com.pitsdog.api.categoria.service.CategoriaService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -26,6 +26,17 @@ public class CategoriaController {
                 categoriaService.listCategorias();
 
         return ResponseEntity.ok(categorias);
+    }
+
+    @PostMapping
+    public ResponseEntity<CategoriaResponseDTO> create(
+            @RequestBody CategoriaRequestDTO dto
+            ){
+        CategoriaResponseDTO createdCategoria = categoriaService.createCategoria(dto);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(createdCategoria);
     }
 }
 
