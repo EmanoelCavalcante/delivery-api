@@ -8,7 +8,8 @@ import java.util.List;
 
 @Getter
 @Setter
-public class CriarPedidoRequestDTO {
+public class PedidoRequestDTO {
+
     private String nomeCliente;
 
     private String telefoneCliente;
@@ -21,8 +22,8 @@ public class CriarPedidoRequestDTO {
 
     private List<ItemPedidoRequestDTO> itens;
 
-    public CriarPedidoRequestDTO() {
+    public PedidoRequestDTO() {
     }
 
-}
 
+}

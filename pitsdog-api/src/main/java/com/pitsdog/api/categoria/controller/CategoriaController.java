@@ -27,16 +27,5 @@ public class CategoriaController {
 
         return ResponseEntity.ok(categorias);
     }
-
-    @PostMapping
-    public ResponseEntity<CategoriaResponseDTO> create(
-            @RequestBody CategoriaRequestDTO dto
-            ){
-        CategoriaResponseDTO createdCategoria = categoriaService.createCategoria(dto);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(createdCategoria);
-    }
 }
 
