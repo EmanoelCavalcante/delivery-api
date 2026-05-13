@@ -1,0 +1,8 @@
+{
+  "nome": "Hamburgers",
+  "descricao": "Hamburgers artesanais e combos",
+  "imagem": "https://exemplo.com/imagens/categorias/hamburgers.png",
+  "ordem": 1,
+  "ativo": true
+}
+

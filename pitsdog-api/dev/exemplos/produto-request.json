@@ -1,0 +1,9 @@
+{
+  "nome": "X-Burger",
+  "descricao": "Pao, hamburger, queijo e molho da casa",
+  "preco": 24.9,
+  "imagemUrl": "https://exemplo.com/imagens/produtos/x-burger.png",
+  "ativo": true,
+  "categoriaId": 1
+}
+

@@ -1,0 +1,31 @@
+{
+  "cliente": {
+    "nome": "Cliente Teste",
+    "telefone": "+55 11 99999-0000"
+  },
+  "itens": [
+    {
+      "produtoId": 1,
+      "quantidade": 2,
+      "observacao": "Sem cebola"
+    }
+  ],
+  "observacaoGeral": "Entregar na portaria",
+  "entrega": {
+    "tipo": "DELIVERY",
+    "endereco": {
+      "logradouro": "Rua Exemplo",
+      "numero": "123",
+      "bairro": "Centro",
+      "cidade": "Sao Paulo",
+      "uf": "SP",
+      "cep": "01000-000",
+      "complemento": "Apto 12"
+    }
+  },
+  "pagamento": {
+    "metodo": "DINHEIRO",
+    "trocoPara": 100.0
+  }
+}
+
