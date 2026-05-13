@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/categorias")
@@ -20,7 +21,7 @@ public class CategoriaController {
         this.categoriaService = categoriaService;
     }
 
-    @GetMapping
+    @GetMapping("/{id}")
     public ResponseEntity<List<CategoriaResponseDTO>> listCategoria(){
         List<CategoriaResponseDTO> categorias =
                 categoriaService.listCategorias();

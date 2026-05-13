@@ -7,6 +7,7 @@ import com.pitsdog.api.categoria.repository.CategoriaRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CategoriaService {

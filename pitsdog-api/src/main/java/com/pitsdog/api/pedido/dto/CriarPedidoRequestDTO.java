@@ -13,7 +13,13 @@ public class CriarPedidoRequestDTO {
 
     private String telefoneCliente;
 
-    private String enderecoEntrega;
+    private String bairroEntrega;
+
+    private String ruaEntrega;
+
+    private Integer numeroCasa;
+
+    private String complemento;
 
     private String formaPagamento;
 

@@ -42,7 +42,10 @@ public class PedidoService {
         dto.setId(pedido.getId());
         dto.setNomeCliente(pedido.getNomeCliente());
         dto.setTelefoneCliente(pedido.getTelefoneCliente());
-        dto.setEnderecoEntrega(pedido.getEnderecoEntrega());
+        dto.setBairroEntrega(pedido.getBairroEntrega());
+        dto.setRuaEntrega(pedido.getRuaEntrega());
+        dto.setNumeroCasa(pedido.getNumeroCasa());
+        dto.setComplemento(pedido.getComplmeneto());
         dto.setFormaPagamento(pedido.getFormaPagamento());
         dto.setSubtotal(pedido.getSubtotal());
         dto.setTaxaEntrega(pedido.getTaxaEntrega());
@@ -104,7 +107,10 @@ public class PedidoService {
 
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
-        pedido.setEnderecoEntrega(dto.getEnderecoEntrega());
+        pedido.setBairroEntrega((dto.getBairroEntrega()));
+        pedido.setRuaEntrega(dto.getRuaEntrega());
+        pedido.setNumeroCasa(dto.getNumeroCasa());
+        pedido.setComplmeneto(dto.getComplemento());
         pedido.setFormaPagamento(dto.getFormaPagamento());
         pedido.setTaxaEntrega(dto.getTaxaEntrega());
         pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
@@ -146,7 +152,10 @@ public class PedidoService {
 
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
-        pedido.setEnderecoEntrega(dto.getEnderecoEntrega());
+        pedido.setBairroEntrega(dto.getBairroEntrega());
+        pedido.setRuaEntrega(dto.getRuaEntrega());
+        pedido.setNumeroCasa(dto.getNumeroCasa());
+        pedido.setComplmeneto(dto.getComplemento());
         pedido.setFormaPagamento(dto.getFormaPagamento());
         pedido.setTaxaEntrega(dto.getTaxaEntrega());
 

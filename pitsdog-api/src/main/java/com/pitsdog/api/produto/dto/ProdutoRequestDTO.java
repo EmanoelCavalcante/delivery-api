@@ -13,7 +13,7 @@ public class ProdutoRequestDTO {
     private String descricao;
     private BigDecimal preco;
     private String imagemUrl;
-    private Boolean disponivel;
+    private Boolean ativo;
     private Long categoriaId;
 
 }

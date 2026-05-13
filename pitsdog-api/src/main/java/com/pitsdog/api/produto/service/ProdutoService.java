@@ -28,13 +28,18 @@ public class ProdutoService {
                         produto.getDescricao(),
                         produto.getPreco(),
                         produto.getImageUrl(),
-                produto.getDisponivel(),
+                produto.getAtivo(),
                 produto.getCategoria().getId(),
                 produto.getCategoria().getNome()
                 );
     }
 
     public ProdutoResponseDTO createProduto(ProdutoRequestDTO dto){
+
+        if(dto.getCategoriaId() == null){
+            throw new RuntimeException("CategoriaId não pode ser null");
+        }
+
         Categoria categoria = categoriaRepository.findById(dto.getCategoriaId())
                 .orElseThrow(()->
                         new RuntimeException("Categoria não encontrada"));
@@ -48,10 +53,11 @@ public class ProdutoService {
         );
         Produto saveProduto = produtoRepository.save(produto);
 
-        return toResponseDTO(produto);
+        return toResponseDTO(saveProduto);
     }
 
     public ProdutoResponseDTO getProdutoById(Long id){
+
         Produto produto = produtoRepository.findById(id)
                 .orElseThrow(()->
                         new RuntimeException("Produto não encontrado"));
@@ -69,12 +75,13 @@ public class ProdutoService {
 
     public ProdutoResponseDTO updateProduto(Long id, ProdutoRequestDTO dto){
 
-        System.out.println("Id produto recebido: " + id);
-        System.out.println("Id da categoria recebida no PUT: " + dto.getCategoriaId());
-
         Produto produto = produtoRepository.findById(id)
                 .orElseThrow(()->
                         new RuntimeException("Produto não encontrado"));
+
+        if (dto.getCategoriaId() == null) {
+            throw new RuntimeException("CategoriaId não pode ser null");
+        }
 
         Categoria categoria = categoriaRepository.findById(dto.getCategoriaId())
                 .orElseThrow(() ->
@@ -84,12 +91,29 @@ public class ProdutoService {
         produto.setDescricao(dto.getDescricao());
         produto.setPreco(dto.getPreco());
         produto.setImageUrl(dto.getImagemUrl());
-        produto.setDisponivel(dto.getDisponivel());
+        produto.setAtivo(dto.getAtivo());
         produto.setCategoria(categoria);
 
         Produto updateProduto = produtoRepository.save(produto);
 
         return toResponseDTO(updateProduto);
+    }
+
+    public ProdutoResponseDTO updateStatus(
+            Long id,
+            Boolean ativo
+    ){
+        if(ativo == null){
+            throw new RuntimeException("Status não pode ser null");
+        }
+        Produto produto = produtoRepository.findById(id)
+                .orElseThrow(()->
+                        new RuntimeException("ID do produto não encontrado."));
+        produto.setAtivo(ativo);
+
+
+        Produto produtoAtualizado = produtoRepository.save(produto);
+        return toResponseDTO(produtoAtualizado);
     }
 
     public void deleteProduto (Long id){

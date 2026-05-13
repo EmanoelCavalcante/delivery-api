@@ -23,7 +23,13 @@ public class Pedido {
 
     private String telefoneCliente;
 
-    private String enderecoEntrega;
+    private String bairroEntrega;
+
+    private String ruaEntrega;
+
+    private String complmeneto;
+
+    private Integer numeroCasa;
 
     private String formaPagamento;
 

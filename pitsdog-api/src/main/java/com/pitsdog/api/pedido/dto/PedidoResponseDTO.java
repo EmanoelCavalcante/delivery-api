@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 
-
+@Getter
+@Setter
 public class PedidoResponseDTO {
     private Long id;
 
@@ -17,7 +18,13 @@ public class PedidoResponseDTO {
 
     private String telefoneCliente;
 
-    private String enderecoEntrega;
+    private String bairroEntrega;
+
+    private String ruaEntrega;
+
+    private String complemento;
+
+    private Integer numeroCasa;
 
     private String formaPagamento;
 
@@ -35,93 +42,4 @@ public class PedidoResponseDTO {
 
     public PedidoResponseDTO() {
     }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getNomeCliente() {
-        return nomeCliente;
-    }
-
-    public void setNomeCliente(String nomeCliente) {
-        this.nomeCliente = nomeCliente;
-    }
-
-    public String getTelefoneCliente() {
-        return telefoneCliente;
-    }
-
-    public void setTelefoneCliente(String telefoneCliente) {
-        this.telefoneCliente = telefoneCliente;
-    }
-
-    public String getEnderecoEntrega() {
-        return enderecoEntrega;
-    }
-
-    public void setEnderecoEntrega(String enderecoEntrega) {
-        this.enderecoEntrega = enderecoEntrega;
-    }
-
-    public String getFormaPagamento() {
-        return formaPagamento;
-    }
-
-    public void setFormaPagamento(String formaPagamento) {
-        this.formaPagamento = formaPagamento;
-    }
-
-    public BigDecimal getSubtotal() {
-        return subtotal;
-    }
-
-    public void setSubtotal(BigDecimal subtotal) {
-        this.subtotal = subtotal;
-    }
-
-    public BigDecimal getTaxaEntrega() {
-        return taxaEntrega;
-    }
-
-    public void setTaxaEntrega(BigDecimal taxaEntrega) {
-        this.taxaEntrega = taxaEntrega;
-    }
-
-    public BigDecimal getTotal() {
-        return total;
-    }
-
-    public void setTotal(BigDecimal total) {
-        this.total = total;
-    }
-
-    public StatusPedido getStatus() {
-        return status;
-    }
-
-    public void setStatus(StatusPedido status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCriadoEm() {
-        return criadoEm;
-    }
-
-    public void setCriadoEm(LocalDateTime criadoEm) {
-        this.criadoEm = criadoEm;
-    }
-
-    public List<ItemPedidoResponseDTO> getItens() {
-        return itens;
-    }
-
-    public void setItens(List<ItemPedidoResponseDTO> itens) {
-        this.itens = itens;
-    }
 }
-
