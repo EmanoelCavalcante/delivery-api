@@ -1,21 +1,27 @@
 package com.pitsdog.api.pedido.dto;
 
+import com.pitsdog.api.pedido.entity.TipoItemPedido;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
 public class ItemPedidoRequestDTO {
 
-    private String nomeProduto;
+    private Long produtoId;
+
+    private Long comboId;
+
+    private TipoItemPedido tipoItem;
 
     private Integer quantidade;
 
-    private BigDecimal precoUnitario;
+    private String observacao;
 
-    private BigDecimal subTotal;
+    private List<ItemPedidoAdicionalRequestDTO> adicionais;
 
     public ItemPedidoRequestDTO() {
     }

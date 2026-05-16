@@ -1,11 +1,11 @@
 package com.pitsdog.api.pedido.dto;
 
-import com.pitsdog.api.pedido.entity.StatusPedido;
+
+import com.pitsdog.api.pedido.entity.TipoItemPedido;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -13,13 +13,22 @@ import java.util.List;
 public class ItemPedidoResponseDTO {
     private Long id;
 
+    private TipoItemPedido tipoItem;
+
+    private Long produtoId;
+    private Long comboId;
+
     private String nomeProduto;
+
+    private String observacao;
 
     private Integer quantidade;
 
     private BigDecimal precoUnitario;
 
     private BigDecimal subtotal;
+
+    private List<ItemPedidoAdicionalResponseDTO> adicionais;
 
     public ItemPedidoResponseDTO() {
     }

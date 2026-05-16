@@ -1,34 +1,32 @@
 package com.pitsdog.api.pedido.service;
 
 import com.pitsdog.api.pedido.dto.*;
-import com.pitsdog.api.pedido.entity.ItemPedido;
-import com.pitsdog.api.pedido.entity.Pedido;
-import com.pitsdog.api.pedido.entity.StatusPedido;
+import com.pitsdog.api.pedido.entity.*;
+import com.pitsdog.api.pedido.repository.AdicionalRepository;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
+import com.pitsdog.api.produto.entity.Produto;
+import com.pitsdog.api.produto.repository.ProdutoRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class PedidoService {
     private final PedidoRepository pedidoRepository;
+    private final ProdutoRepository produtoRepository;
+    private final AdicionalRepository adicionalRepository;
 
-    public PedidoService(PedidoRepository pedidoRepository) {
+    public PedidoService(
+            PedidoRepository pedidoRepository,
+            ProdutoRepository produtoRepository,
+            AdicionalRepository adicionalRepository
+    ) {
         this.pedidoRepository = pedidoRepository;
-    }
-
-    private ItemPedidoResponseDTO converterItemParaResponseDTO(ItemPedido item){
-        ItemPedidoResponseDTO dto = new ItemPedidoResponseDTO();
-
-        dto.setId(item.getId());
-        dto.setNomeProduto(item.getNomeProduto());
-        dto.setQuantidade(item.getQuantidade());
-        dto.setPrecoUnitario(item.getPrecoUnitario());
-        dto.setSubtotal(item.getSubtotal());
-
-        return dto;
+        this.produtoRepository = produtoRepository;
+        this.adicionalRepository = adicionalRepository;
     }
 
     private Pedido buscarPedidoEntityById(Long id){
@@ -36,27 +34,131 @@ public class PedidoService {
                 .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
     }
 
+    private Produto buscarProdutoById(Long id){
+        return produtoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+    }
+
+    private Adicional buscarAdicionalById(Long id){
+        return adicionalRepository.findById(id)
+                .orElseThrow(() ->new RuntimeException("Adicional não encontrado"));
+    }
+
+    private String limparTelefone(String telefone){
+        if(telefone == null || telefone.isBlank()){
+            return null;
+        }
+        return telefone.replaceAll("\\D", "");
+    }
+
+    private BigDecimal valorOurZero(BigDecimal valor){
+        return valor != null ? valor : BigDecimal.ZERO;
+    }
+
+    private Integer quantidadeOuUm(Integer quantidade){
+        if (quantidade == null || quantidade <= 0){
+            return 1;
+        }
+        return quantidade;
+    }
+
+    private BigDecimal calcularSubtotalItem(ItemPedido item){
+        BigDecimal quantidade = BigDecimal.valueOf(quantidadeOuUm(item.getQuantidade()));
+
+        BigDecimal subtotalProduto = item.getPrecoUnitario().multiply(quantidade);
+
+        BigDecimal subtotalAdicionais = BigDecimal.ZERO;
+
+        if(item.getAdicional() != null){
+            for(ItemPedidoAdicional adicional : item.getAdicional()){
+                subtotalAdicionais = subtotalAdicionais.add((valorOurZero(adicional.getSubtotal())));
+            }
+        }
+
+        return subtotalProduto.add(subtotalAdicionais);
+    }
+
+    private void recalcularValores(Pedido pedido) {
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        if (pedido.getItens() != null) {
+            for (ItemPedido item : pedido.getItens()) {
+                BigDecimal subtotalItem = calcularSubtotalItem(item);
+                item.setSubtotal(subtotalItem);
+                subtotal = subtotal.add(subtotalItem);
+            }
+        }
+
+        BigDecimal descontoManualValor = valorOurZero(pedido.getDescontoManualValor());
+        BigDecimal descontoManutalPercentual = valorOurZero(pedido.getDescontoManualPercentual());
+
+        BigDecimal descontoPercentualCalculado = BigDecimal.ZERO;
+
+        if (descontoManutalPercentual.compareTo(BigDecimal.ZERO) > 0) {
+            descontoPercentualCalculado = subtotal
+                    .multiply(descontoManutalPercentual)
+                    .divide(BigDecimal.valueOf(100));
+        }
+
+
+        BigDecimal descontoFidelidadeValor = valorOurZero(pedido.getDescontoFidelidadeValor());
+
+        BigDecimal taxaEntrega = valorOurZero((pedido.getTaxaEntrega()));
+
+        BigDecimal total = subtotal
+                .subtract(descontoManualValor)
+                .subtract(descontoPercentualCalculado)
+                .subtract(descontoFidelidadeValor)
+                .add(taxaEntrega);
+
+        if (total.compareTo(BigDecimal.ZERO) < 0) {
+            total = BigDecimal.ZERO;
+        }
+
+        pedido.setSubtotal(subtotal);
+        pedido.setTotal(total);
+    }
+
     private PedidoResponseDTO converterParaResponseDTO(Pedido pedido){
         PedidoResponseDTO dto = new PedidoResponseDTO();
 
         dto.setId(pedido.getId());
+        dto.setNumeroPedido(pedido.getNumeroPedido());
+
+        dto.setTipoPedido(pedido.getTipoPedido());
+        dto.setNumeroMesa(pedido.getNumeroMesa());
+
         dto.setNomeCliente(pedido.getNomeCliente());
         dto.setTelefoneCliente(pedido.getTelefoneCliente());
+
         dto.setBairroEntrega(pedido.getBairroEntrega());
         dto.setRuaEntrega(pedido.getRuaEntrega());
         dto.setNumeroCasa(pedido.getNumeroCasa());
-        dto.setComplemento(pedido.getComplmeneto());
-        dto.setFormaPagamento(pedido.getFormaPagamento());
+
+        dto.setStatus(pedido.getStatus());
+
+        dto.setMomentoPedido(pedido.getMomentoPedido().atStartOfDay());
+        dto.setPrevisaoRetirada(pedido.getPrevisaoRetirada());
+
         dto.setSubtotal(pedido.getSubtotal());
+
+        dto.setDescontoManualPercentual(pedido.getDescontoManualPercentual());
+        dto.setDescontoManualValor(pedido.getDescontoManualValor());
+
+        dto.setDescontoFidelidadePercentual(pedido.getDescontoFidelidadePercentual());
+        dto.setDescontoFidelidadeValor(pedido.getDescontoFidelidadeValor());
+
         dto.setTaxaEntrega(pedido.getTaxaEntrega());
         dto.setTotal(pedido.getTotal());
-        dto.setStatus(pedido.getStatus());
-        dto.setCriadoEm(pedido.getCriadoEm().atStartOfDay());
+
+        dto.setFormaPagamento(pedido.getFormaPagamento());
 
         List<ItemPedidoResponseDTO> itensResponse = new ArrayList<>();
 
-        for(ItemPedido itemPedido :  pedido.getItens()){
-            itensResponse.add(converterItemParaResponseDTO(itemPedido));
+        if(pedido.getItens() != null){
+            for(ItemPedido itemPedido : pedido.getItens()){
+                itensResponse.add(converterItemParaResponseDTO(itemPedido));
+            }
         }
 
         dto.setItens(itensResponse);
@@ -64,81 +166,180 @@ public class PedidoService {
         return dto;
     }
 
-    private BigDecimal calcularSubtotal(List<ItemPedido> itens) {
-        BigDecimal subtotal = BigDecimal.ZERO;
+    private ItemPedidoAdicionalResponseDTO converterAdicionalParaResponseDTO (ItemPedidoAdicional adicional){
+        ItemPedidoAdicionalResponseDTO dto = new ItemPedidoAdicionalResponseDTO();
 
-        for (ItemPedido item : itens) {
-            subtotal = subtotal.add(item.getSubtotal());
+        dto.setId(adicional.getId());
+
+        if(adicional.getNomeAdicional() != null){
+            dto.setAdicionalId(adicional.getId());
+        }
+        dto.setNomeAdicional(adicional.getNomeAdicional());
+        dto.setQuantidade(adicional.getQuantidade());
+        dto.setPrecoUnitario(adicional.getPrecoUnitario());
+        dto.setSubtotal(adicional.getSubtotal());
+
+        return dto;
+    }
+
+    private ItemPedidoResponseDTO converterItemParaResponseDTO(ItemPedido item){
+        ItemPedidoResponseDTO dto = new ItemPedidoResponseDTO();
+
+        dto.setId(item.getId());
+
+        if(item.getProduto() != null){
+            dto.setProdutoId(item.getProduto().getId());
+        }
+        dto.setNomeProduto(item.getNomeProduto());
+        dto.setObservacao(item.getObservacao());
+        dto.setQuantidade(item.getQuantidade());
+        dto.setPrecoUnitario(item.getPrecoUnitario());
+        dto.setSubtotal(item.getSubtotal());
+
+        List<ItemPedidoAdicionalResponseDTO> adicionalResponse = new ArrayList<>();
+
+        if(item.getAdicional() != null){
+            for(ItemPedidoAdicional adicional : item.getAdicional()){
+                adicionalResponse.add(converterAdicionalParaResponseDTO(adicional));
+            }
         }
 
-        return subtotal;
+        dto.setAdicionais(adicionalResponse);
+
+        return dto;
+    }
+
+    private List<ItemPedidoAdicional> converterAdicionaisParaEntity(
+            List<ItemPedidoAdicionalRequestDTO> adicionaisDTO,
+            ItemPedido itemPedido
+    ){
+        List<ItemPedidoAdicional> adicionais = new ArrayList<>();
+
+        if(adicionaisDTO == null || adicionaisDTO.isEmpty()){
+            return adicionais;
+        }
+
+        for(ItemPedidoAdicionalRequestDTO adicionalDTO : adicionaisDTO){
+            Adicional adicional = buscarAdicionalById(adicionalDTO.getAdicionalId());
+
+            Integer quantidade = quantidadeOuUm(adicionalDTO.getQuantidade());
+
+            ItemPedidoAdicional itemPedidoAdicional = new ItemPedidoAdicional();
+
+            itemPedidoAdicional.setItemPedido(itemPedido);
+            itemPedidoAdicional.setAdicional(adicional);
+
+            itemPedidoAdicional.setNomeAdicional(adicional.getNomeAdicional());
+            itemPedidoAdicional.setPrecoUnitario(adicional.getPreco());
+            itemPedidoAdicional.setQuantidade(quantidade);
+
+            BigDecimal subtotalAdicional = adicional.getPreco()
+                    .multiply(BigDecimal.valueOf(quantidade));
+
+            itemPedidoAdicional.setSubtotal(subtotalAdicional);
+
+            adicionais.add(itemPedidoAdicional);
+        }
+        return adicionais;
     }
 
     private List<ItemPedido> converterItensParaEntity(
             List<ItemPedidoRequestDTO> itensDTO,
             Pedido pedido
-    ){
+    ) {
         List<ItemPedido> itens = new ArrayList<>();
 
-        for(ItemPedidoRequestDTO itemDTO : itensDTO){
+        if (itensDTO == null || itensDTO.isEmpty()) {
+            throw new RuntimeException("Pedido precisa ter pelo menos um item");
+        }
+
+        for (ItemPedidoRequestDTO itemDTO : itensDTO) {
             ItemPedido itemPedido = new ItemPedido();
 
-            itemPedido.setNomeProduto(itemDTO.getNomeProduto());
-            itemPedido.setQuantidade(itemDTO.getQuantidade());
-            itemPedido.setPrecoUnitario(itemDTO.getPrecoUnitario());
+            Produto produto = buscarProdutoById(itemDTO.getProdutoId());
 
-            BigDecimal subTotalItem = itemDTO.getPrecoUnitario()
-                    .multiply(BigDecimal.valueOf(itemDTO.getQuantidade()));
+            Integer quantidade = quantidadeOuUm(itemDTO.getQuantidade());
 
-            itemPedido.setSubTotal(subTotalItem);
             itemPedido.setPedido(pedido);
+            itemPedido.setProduto(produto);
+
+            itemPedido.setNomeProduto(produto.getNome());
+            itemPedido.setPrecoUnitario(produto.getPreco());
+            itemPedido.setQuantidade(quantidade);
+            itemPedido.setObservacao(itemDTO.getObservacao());
+
+            List<ItemPedidoAdicional> adicionais = converterAdicionaisParaEntity(
+                    itemDTO.getAdicionais(),
+                    itemPedido
+            );
+
+            itemPedido.setAdicional(adicionais);
+
+            BigDecimal subtotalItem = calcularSubtotalItem(itemPedido);
+
+            itemPedido.setSubtotal(subtotalItem);
 
             itens.add(itemPedido);
         }
-        return itens;
-    }
 
-    private String limparTelefone(String telefone){
-        return telefone.replaceAll("\\D", "");
+        return itens;
     }
 
     public PedidoResponseDTO createPedido(CriarPedidoRequestDTO dto){
         Pedido pedido = new Pedido();
 
+        pedido.setTipoPedido(dto.getTipoPedido());
+        pedido.setNumeroMesa(dto.getNumeroMesa());
+
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
-        pedido.setBairroEntrega((dto.getBairroEntrega()));
+
+        pedido.setBairroEntrega(dto.getBairroEntrega());
         pedido.setRuaEntrega(dto.getRuaEntrega());
         pedido.setNumeroCasa(dto.getNumeroCasa());
-        pedido.setComplmeneto(dto.getComplemento());
+        pedido.setComplemento(dto.getComplemento());
+
+        pedido.setPrevisaoRetirada(dto.getPrevisaoRetirada());
         pedido.setFormaPagamento(dto.getFormaPagamento());
-        pedido.setTaxaEntrega(dto.getTaxaEntrega());
-        pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
+
+        pedido.setMomentoPedido(LocalDateTime.now());
+        pedido.setStatus(StatusPedido.ABERTO);
+
+        if(pedido.getTipoPedido() == TipoPedido.ENTREGA){
+            pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
+        }
+        else{
+            pedido.setTaxaEntrega(valorOurZero(BigDecimal.ZERO));
+        }
+
+        pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
+        pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
+
+        pedido.setDescontoFidelidadePercentual(BigDecimal.ZERO);
+        pedido.setDescontoFidelidadeValor(BigDecimal.ZERO);
 
         List<ItemPedido> itens = converterItensParaEntity(dto.getItens(), pedido);
 
-        BigDecimal subTotal = calcularSubtotal(itens);
-        BigDecimal total = subTotal.add(dto.getTaxaEntrega());
-
         pedido.setItens(itens);
-        pedido.setSubtotal(subTotal);
-        pedido.setTotal(total);
 
-        Pedido pedidoSalvo = pedidoRepository.save(pedido);
+        recalcularValores(pedido);
 
-        return converterParaResponseDTO(pedidoSalvo);
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
     }
+
 
     public List<PedidoResponseDTO> listPedidos(){
         List<Pedido> pedidos = pedidoRepository.findAll();
 
-        List<PedidoResponseDTO> pedidoResponse = new ArrayList<>();
+        List<PedidoResponseDTO> response = new ArrayList<>();
 
-        for(Pedido pedido : pedidos){
-            pedidoResponse.add(converterParaResponseDTO(pedido));
+        for (Pedido pedido : pedidos){
+            response.add(converterParaResponseDTO(pedido));
         }
 
-        return pedidoResponse;
+        return response;
     }
 
     public PedidoResponseDTO buscarPedidoById(Long id){
@@ -147,46 +348,157 @@ public class PedidoService {
         return converterParaResponseDTO(pedido);
     }
 
-    public PedidoResponseDTO editarPedido(Long id, PedidoRequestDTO dto){
+    public List<PedidoResponseDTO> buscarPedidoByMesa(Integer numeroMesa){
+        List<Pedido> pedidos = pedidoRepository.findByNumeroMesa(numeroMesa);
+
+        List<PedidoResponseDTO> response = new ArrayList<>();
+
+        for (Pedido pedido : pedidos){
+            response.add(converterParaResponseDTO(pedido));
+        }
+        return response;
+    }
+
+    public PedidoResponseDTO editarPedido(Long id, CriarPedidoRequestDTO dto){
         Pedido pedido = buscarPedidoEntityById(id);
+
+        pedido.setTipoPedido(dto.getTipoPedido());
+        pedido.setNumeroMesa(dto.getNumeroMesa());
 
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
+
         pedido.setBairroEntrega(dto.getBairroEntrega());
         pedido.setRuaEntrega(dto.getRuaEntrega());
         pedido.setNumeroCasa(dto.getNumeroCasa());
-        pedido.setComplmeneto(dto.getComplemento());
+        pedido.setComplemento(dto.getComplemento());
+
+        pedido.setPrevisaoRetirada(dto.getPrevisaoRetirada());
         pedido.setFormaPagamento(dto.getFormaPagamento());
-        pedido.setTaxaEntrega(dto.getTaxaEntrega());
+
+        if(pedido.getTipoPedido() == TipoPedido.ENTREGA){
+            pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
+        }
+        else{
+            pedido.setTaxaEntrega(BigDecimal.ZERO);
+        }
+
+        pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
+        pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
 
         pedido.getItens().clear();
 
         List<ItemPedido> novosItens = converterItensParaEntity(dto.getItens(), pedido);
 
-        BigDecimal subtotal = calcularSubtotal(novosItens);
-        BigDecimal total = subtotal.add(dto.getTaxaEntrega());
-
         pedido.getItens().addAll(novosItens);
-        pedido.setSubtotal(subtotal);
-        pedido.setTotal(total);
+
+        recalcularValores(pedido);
 
         Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
         return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public PedidoResponseDTO atualizarStatusPedido(Long id, AtualizarStatusPedidoDTO dto){
+    public PedidoResponseDTO arualizarSattusPedido (Long id, AtualizarStatusPedidoDTO dto){
         Pedido pedido = buscarPedidoEntityById(id);
 
-        if (dto.getStatus() == null){
+        if(dto.getStatus() == null){
             throw new RuntimeException("Status não pode ser null");
         }
-        pedido.setStatus(dto.getStatus());
 
+        pedido.setStatus(dto.getStatus());
 
         Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
         return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+   public PedidoResponseDTO atualizarFormaDePagamento(Long id, AtualizarPagamentoPedidoDTO dto){
+        Pedido pedido = buscarPedidoEntityById(id);
+
+        if(dto.getFormaPagamento() == null){
+            throw new RuntimeException("Forma de pagamento não pode ser null");
+        }
+       pedido.setFormaPagamento(dto.getFormaPagamento());
+
+       Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+       return converterParaResponseDTO(pedidoAtualizado);
+   }
+
+   public PedidoResponseDTO aplicarDescontoManual (Long id, AplicarDescontoPedidoDTO dto){
+        Pedido pedido = buscarPedidoEntityById(id);
+
+       pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
+       pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
+
+       recalcularValores(pedido);
+
+       Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+       return converterParaResponseDTO(pedidoAtualizado);
+
+   }
+
+    public PedidoResponseDTO adicionarItemAoPedido(Long pedidoId, ItemPedidoRequestDTO dto){
+        Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        List<ItemPedidoRequestDTO> itensDTO = List.of(dto);
+
+        List<ItemPedido> novosItens = converterItensParaEntity(itensDTO, pedido);
+
+        pedido.getItens().addAll(novosItens);
+
+        recalcularValores(pedido);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+    public PedidoResponseDTO removerItemDoPedido (Long pedidoId, Long itemId){
+        Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        boolean removido = pedido.getItens().removeIf(item -> item.getId().equals(itemId));
+
+        if(!removido){
+            throw new RuntimeException("Item não encontrado neste pedido");
+        }
+
+        recalcularValores(pedido);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+    public PedidoResponseDTO atualizarQuantidadeItem(Long pedidoId, Long itemId, Integer quantidade){
+        Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        for(ItemPedido item : pedido.getItens()){
+            if(item.getId().equals(itemId)){
+                item.setQuantidade(quantidadeOuUm(quantidade));
+                recalcularValores(pedido);
+
+                Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+                return converterParaResponseDTO(pedidoAtualizado);
+            }
+        }
+        throw new RuntimeException("Item não encontrado neste pedido");
+    }
+
+    public PedidoResponseDTO atualizarObservacaoItem(Long pedidoId, Long itemId, String observacao){
+        Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        for(ItemPedido item : pedido.getItens()){
+            if(item.getId().equals(itemId)){
+                item.setObservacao(observacao);
+
+                Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+                return converterParaResponseDTO(pedidoAtualizado);
+            }
+        }
+        throw new RuntimeException("Item não encontrado neste pedido");
     }
 
     public void removerPedido(Long id){
