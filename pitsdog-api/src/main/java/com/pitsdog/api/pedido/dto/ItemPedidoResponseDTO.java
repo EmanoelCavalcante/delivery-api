@@ -19,6 +19,7 @@ public class ItemPedidoResponseDTO {
     private Long comboId;
 
     private String nomeProduto;
+    private String nomeCombo;
 
     private String observacao;
 

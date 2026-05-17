@@ -6,6 +6,7 @@ import com.pitsdog.api.pedido.dto.ItemPedidoAdicionalRequestDTO;
 import com.pitsdog.api.pedido.dto.ItemPedidoRequestDTO;
 import com.pitsdog.api.pedido.dto.PedidoResponseDTO;
 import com.pitsdog.api.pedido.service.PedidoService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class PedidoController {
 
    @PostMapping
     public ResponseEntity<PedidoResponseDTO> createPedido(
-            @RequestBody CriarPedidoRequestDTO dto
+            @Valid @RequestBody CriarPedidoRequestDTO dto
    ){
         PedidoResponseDTO pedidoCriado = pedidoService.createPedido(dto);
 
@@ -44,7 +45,7 @@ public class PedidoController {
    @PostMapping("/{pedidoId}/itens")
     public ResponseEntity<PedidoResponseDTO> adicionarItemAoPedido(
            @PathVariable Long pedidoId,
-           @RequestBody ItemPedidoRequestDTO dto
+           @Valid @RequestBody ItemPedidoRequestDTO dto
            ){
         PedidoResponseDTO pedidoAtualizado =
                 pedidoService.adicionarItemAoPedido(pedidoId, dto);
@@ -76,7 +77,7 @@ public class PedidoController {
    public ResponseEntity<PedidoResponseDTO> atualizarAdicionaisDoItem(
            @PathVariable Long pedidoId,
            @PathVariable Long itemId,
-           @RequestBody List<ItemPedidoAdicionalRequestDTO> adicionaisDTO
+           @Valid @RequestBody List<ItemPedidoAdicionalRequestDTO> adicionaisDTO
    ){
         PedidoResponseDTO adicionalAtualizado = pedidoService.atualizarAdicionaisDoItem(pedidoId, itemId, adicionaisDTO);
 
@@ -95,4 +96,3 @@ public class PedidoController {
    }
 
 }
-

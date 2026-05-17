@@ -2,10 +2,13 @@ package com.pitsdog.api.pedido.service;
 
 import com.pitsdog.api.pedido.dto.*;
 import com.pitsdog.api.pedido.entity.*;
+import com.pitsdog.api.pedido.repository.ComboRepository;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
 import com.pitsdog.api.produto.entity.Produto;
 import com.pitsdog.api.produto.repository.ProdutoRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,26 +20,34 @@ public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final ProdutoRepository produtoRepository;
+    private final ComboRepository comboRepository;
     private final AdicionalService adicionalService;
 
     public PedidoService(
             PedidoRepository pedidoRepository,
             ProdutoRepository produtoRepository,
+            ComboRepository comboRepository,
             AdicionalService adicionalService
     ) {
         this.pedidoRepository = pedidoRepository;
         this.produtoRepository = produtoRepository;
+        this.comboRepository = comboRepository;
         this.adicionalService = adicionalService;
     }
 
     private Pedido buscarPedidoEntityById(Long id) {
         return pedidoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido não encontrado"));
     }
 
     private Produto buscarProdutoById(Long id) {
         return produtoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
+    }
+
+    private Combo buscarComboById(Long id) {
+        return comboRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Combo não encontrado"));
     }
 
     private String limparTelefone(String telefone) {
@@ -47,22 +58,56 @@ public class PedidoService {
         return telefone.replaceAll("\\D", "");
     }
 
+    private void validarPedidoRequest(CriarPedidoRequestDTO dto) {
+        if (dto.getTipoPedido() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tipoPedido é obrigatório");
+        }
+        if (dto.getFormaPagamento() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "formaPagamento é obrigatório");
+        }
+        if (dto.getItens() == null || dto.getItens().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido deve possuir pelo menos um item");
+        }
+
+        if (dto.getTipoPedido() == TipoPedido.ENTREGA) {
+            if (dto.getNomeCliente() == null || dto.getNomeCliente().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "nomeCliente é obrigatório para ENTREGA");
+            }
+            if (dto.getBairroEntrega() == null || dto.getBairroEntrega().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "bairroEntrega é obrigatório para ENTREGA");
+            }
+            if (dto.getRuaEntrega() == null || dto.getRuaEntrega().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ruaEntrega é obrigatório para ENTREGA");
+            }
+            if (dto.getNumeroCasa() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "numeroCasa é obrigatório para ENTREGA");
+            }
+        }
+
+        if (dto.getTipoPedido() == TipoPedido.MESA) {
+            if (dto.getNumeroMesa() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "numeroMesa é obrigatório para MESA");
+            }
+        }
+    }
+
     private BigDecimal valorOurZero(BigDecimal valor) {
         return valor != null ? valor : BigDecimal.ZERO;
     }
 
-    private Integer quantidadeOuUm(Integer quantidade) {
-        if (quantidade == null || quantidade <= 0) {
-            return 1;
+    private Integer validarQuantidade(Integer quantidade) {
+        if (quantidade == null || quantidade < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantidade deve ser maior ou igual a 1");
         }
 
         return quantidade;
     }
 
     private BigDecimal calcularSubtotalItem(ItemPedido item) {
-        BigDecimal quantidade = BigDecimal.valueOf(quantidadeOuUm(item.getQuantidade()));
+        BigDecimal quantidade = BigDecimal.valueOf(validarQuantidade(item.getQuantidade()));
 
-        BigDecimal subtotalProduto = item.getPrecoUnitario().multiply(quantidade);
+        BigDecimal precoUnitario = valorOurZero(item.getPrecoUnitario());
+        BigDecimal subtotalBase = precoUnitario.multiply(quantidade);
 
         BigDecimal subtotalAdicionais = BigDecimal.ZERO;
 
@@ -72,7 +117,7 @@ public class PedidoService {
             }
         }
 
-        return subtotalProduto.add(subtotalAdicionais);
+        return subtotalBase.add(subtotalAdicionais);
     }
 
     private void recalcularValores(Pedido pedido) {
@@ -132,7 +177,7 @@ public class PedidoService {
 
         dto.setStatus(pedido.getStatus());
 
-        dto.setMomentoPedido(pedido.getMomentoPedido().atStartOfDay());
+        dto.setMomentoPedido(pedido.getMomentoPedido());
         dto.setPrevisaoRetirada(pedido.getPrevisaoRetirada());
 
         dto.setSubtotal(pedido.getSubtotal());
@@ -147,6 +192,7 @@ public class PedidoService {
         dto.setTotal(pedido.getTotal());
 
         dto.setFormaPagamento(pedido.getFormaPagamento());
+        dto.setComplemento(pedido.getComplemento());
 
         List<ItemPedidoResponseDTO> itensResponse = new ArrayList<>();
 
@@ -182,9 +228,15 @@ public class PedidoService {
         ItemPedidoResponseDTO dto = new ItemPedidoResponseDTO();
 
         dto.setId(item.getId());
+        dto.setTipoItem(item.getTipoItem());
 
         if (item.getProduto() != null) {
             dto.setProdutoId(item.getProduto().getId());
+        }
+
+        if (item.getCombo() != null) {
+            dto.setComboId(item.getCombo().getId());
+            dto.setNomeCombo(item.getCombo().getNome());
         }
 
         dto.setNomeProduto(item.getNomeProduto());
@@ -213,23 +265,64 @@ public class PedidoService {
         List<ItemPedido> itens = new ArrayList<>();
 
         if (itensDTO == null || itensDTO.isEmpty()) {
-            throw new RuntimeException("Pedido precisa ter pelo menos um item");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido deve possuir pelo menos um item");
         }
 
         for (ItemPedidoRequestDTO itemDTO : itensDTO) {
             ItemPedido itemPedido = new ItemPedido();
 
-            Produto produto = buscarProdutoById(itemDTO.getProdutoId());
+            if (itemDTO.getTipoItem() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo do item é obrigatório");
+            }
 
-            Integer quantidade = quantidadeOuUm(itemDTO.getQuantidade());
+            Integer quantidade = validarQuantidade(itemDTO.getQuantidade());
 
             itemPedido.setPedido(pedido);
-            itemPedido.setProduto(produto);
-
-            itemPedido.setNomeProduto(produto.getNome());
-            itemPedido.setPrecoUnitario(produto.getPreco());
             itemPedido.setQuantidade(quantidade);
             itemPedido.setObservacao(itemDTO.getObservacao());
+
+            if (itemDTO.getTipoItem() == TipoItemPedido.PRODUTO) {
+                if (itemDTO.getProdutoId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto é obrigatório para item do tipo PRODUTO");
+                }
+                if (itemDTO.getComboId() != null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "comboId deve ser null para item do tipo PRODUTO");
+                }
+
+                Produto produto = buscarProdutoById(itemDTO.getProdutoId());
+                if (produto.getPreco() == null) {
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Preço do produto não configurado");
+                }
+
+                itemPedido.setTipoItem(TipoItemPedido.PRODUTO);
+                itemPedido.setProduto(produto);
+                itemPedido.setCombo(null);
+
+                itemPedido.setNomeProduto(produto.getNome());
+                itemPedido.setPrecoUnitario(produto.getPreco());
+            } else if (itemDTO.getTipoItem() == TipoItemPedido.COMBO) {
+                if (itemDTO.getComboId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Combo é obrigatório para item do tipo COMBO");
+                }
+                if (itemDTO.getProdutoId() != null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "produtoId deve ser null para item do tipo COMBO");
+                }
+
+                Combo combo = buscarComboById(itemDTO.getComboId());
+                if (combo.getPreco() == null) {
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Preço do combo não configurado");
+                }
+
+                itemPedido.setTipoItem(TipoItemPedido.COMBO);
+                itemPedido.setCombo(combo);
+                itemPedido.setProduto(null);
+
+                // Mantemos compatibilidade com o response atual (nomeProduto já existe).
+                itemPedido.setNomeProduto(combo.getNome());
+                itemPedido.setPrecoUnitario(combo.getPreco());
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo do item inválido");
+            }
 
             List<ItemPedidoAdicional> adicionais =
                     adicionalService.converterAdicionaisParaItemPedido(
@@ -251,7 +344,7 @@ public class PedidoService {
 
     private ItemPedido buscarItemPedido(Pedido pedido, Long itemId) {
         if (pedido.getItens() == null || pedido.getItens().isEmpty()) {
-            throw new RuntimeException("Pedido não possui itens");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido não possui itens");
         }
 
         for (ItemPedido item : pedido.getItens()) {
@@ -260,16 +353,18 @@ public class PedidoService {
             }
         }
 
-        throw new RuntimeException("Item não encontrado neste pedido");
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item não encontrado neste pedido");
     }
 
     private void validarPedidoEditavel(Pedido pedido) {
-        if (pedido.getStatus() != StatusPedido.ABERTO) {
-            throw new RuntimeException("Pedido não pode mais ser editado");
+        if (pedido.getStatus() != StatusPedido.ABERTO && pedido.getStatus() != StatusPedido.AGUARDANDO_APROVACAO) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido não pode mais ser editado");
         }
     }
 
     public PedidoResponseDTO createPedido(CriarPedidoRequestDTO dto) {
+        validarPedidoRequest(dto);
+
         Pedido pedido = new Pedido();
 
         pedido.setTipoPedido(dto.getTipoPedido());
@@ -287,7 +382,8 @@ public class PedidoService {
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
         pedido.setMomentoPedido(LocalDateTime.now());
-        pedido.setStatus(StatusPedido.ABERTO);
+        // Evita incompatibilidade com constraints do banco que não aceitam ABERTO.
+        pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
 
         if (pedido.getTipoPedido() == TipoPedido.ENTREGA) {
             pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
@@ -308,6 +404,12 @@ public class PedidoService {
         recalcularValores(pedido);
 
         Pedido pedidoSalvo = pedidoRepository.save(pedido);
+
+        if (pedidoSalvo.getNumeroPedido() == null && pedidoSalvo.getId() != null) {
+            // Estratégia simples: usar o próprio ID como número do pedido (evita duplicidade).
+            pedidoSalvo.setNumeroPedido(Math.toIntExact(pedidoSalvo.getId()));
+            pedidoSalvo = pedidoRepository.save(pedidoSalvo);
+        }
 
         return converterParaResponseDTO(pedidoSalvo);
     }
@@ -343,6 +445,8 @@ public class PedidoService {
     }
 
     public PedidoResponseDTO editarPedido(Long id, CriarPedidoRequestDTO dto) {
+        validarPedidoRequest(dto);
+
         Pedido pedido = buscarPedidoEntityById(id);
 
         pedido.setTipoPedido(dto.getTipoPedido());
@@ -368,7 +472,11 @@ public class PedidoService {
         pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
         pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
 
-        pedido.getItens().clear();
+        if (pedido.getItens() == null) {
+            pedido.setItens(new ArrayList<>());
+        } else {
+            pedido.getItens().clear();
+        }
 
         List<ItemPedido> novosItens = converterItensParaEntity(dto.getItens(), pedido);
 
@@ -385,7 +493,7 @@ public class PedidoService {
         Pedido pedido = buscarPedidoEntityById(id);
 
         if (dto.getStatus() == null) {
-            throw new RuntimeException("Status não pode ser null");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status não pode ser null");
         }
 
         pedido.setStatus(dto.getStatus());
@@ -399,7 +507,7 @@ public class PedidoService {
         Pedido pedido = buscarPedidoEntityById(id);
 
         if (dto.getFormaPagamento() == null) {
-            throw new RuntimeException("Forma de pagamento não pode ser null");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Forma de pagamento não pode ser null");
         }
 
         pedido.setFormaPagamento(dto.getFormaPagamento());
@@ -431,6 +539,9 @@ public class PedidoService {
 
         List<ItemPedido> novosItens = converterItensParaEntity(itensDTO, pedido);
 
+        if (pedido.getItens() == null) {
+            pedido.setItens(new ArrayList<>());
+        }
         pedido.getItens().addAll(novosItens);
 
         recalcularValores(pedido);
@@ -445,10 +556,14 @@ public class PedidoService {
 
         validarPedidoEditavel(pedido);
 
+        if (pedido.getItens() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido não possui itens");
+        }
+
         boolean removido = pedido.getItens().removeIf(item -> item.getId().equals(itemId));
 
         if (!removido) {
-            throw new RuntimeException("Item não encontrado neste pedido");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item não encontrado neste pedido");
         }
 
         recalcularValores(pedido);
@@ -465,7 +580,7 @@ public class PedidoService {
 
         ItemPedido item = buscarItemPedido(pedido, itemId);
 
-        item.setQuantidade(quantidadeOuUm(quantidade));
+        item.setQuantidade(validarQuantidade(quantidade));
 
         recalcularValores(pedido);
 

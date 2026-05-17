@@ -34,6 +34,8 @@ public class Pedido {
 
     private String ruaEntrega;
 
+    // Mantemos o nome do atributo interno por compatibilidade com o schema atual.
+    // Externamente, usamos getter/setter "Complemento" para alinhar com o DTO/JSON.
     private String complmeneto;
 
     private Integer numeroCasa;
@@ -65,14 +67,16 @@ public class Pedido {
     @JoinColumn(name = "combo_id")
     private Combo combo;
 
-    private LocalDate momentoPedido;
+    private LocalDateTime momentoPedido;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemPedido> itens;
 
     @PrePersist
     public void prePersist() {
-        this.momentoPedido = LocalDate.now();
+        if (this.momentoPedido == null) {
+            this.momentoPedido = LocalDateTime.now();
+        }
 
         if (this.status == null) {
             this.status = StatusPedido.AGUARDANDO_APROVACAO;
@@ -86,7 +90,7 @@ public class Pedido {
         this.complmeneto = complemento;
     }
 
-    public void setMomentoPedido(LocalDateTime now) {
-
+    public String getComplemento() {
+        return this.complmeneto;
     }
 }

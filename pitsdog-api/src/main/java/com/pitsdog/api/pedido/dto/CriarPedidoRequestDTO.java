@@ -5,6 +5,10 @@ import com.pitsdog.api.pedido.entity.TipoPedido;
 import lombok.Getter;
 import lombok.Setter;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,6 +18,7 @@ import java.util.List;
 public class CriarPedidoRequestDTO {
 
 
+    @NotNull(message = "tipoPedido é obrigatório")
     private TipoPedido tipoPedido;
 
     private Integer numeroMesa;
@@ -32,6 +37,7 @@ public class CriarPedidoRequestDTO {
 
     private LocalDateTime previsaoRetirada;
 
+    @NotNull(message = "formaPagamento é obrigatório")
     private FormaPagamento formaPagamento;
 
     private BigDecimal taxaEntrega;
@@ -40,6 +46,8 @@ public class CriarPedidoRequestDTO {
 
     private BigDecimal descontoManualValor;
 
+    @NotEmpty(message = "itens é obrigatório e não pode ser vazio")
+    @Valid
     private List<ItemPedidoRequestDTO> itens;
 
 
@@ -48,4 +56,3 @@ public class CriarPedidoRequestDTO {
     }
 
 }
-

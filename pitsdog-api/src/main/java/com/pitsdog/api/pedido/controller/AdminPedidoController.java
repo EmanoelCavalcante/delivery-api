@@ -2,6 +2,7 @@ package com.pitsdog.api.pedido.controller;
 
 import com.pitsdog.api.pedido.dto.*;
 import com.pitsdog.api.pedido.service.PedidoService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,7 +43,7 @@ public class AdminPedidoController {
     @PutMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> editPedido(
             @PathVariable Long id,
-            @RequestBody CriarPedidoRequestDTO dto
+            @Valid @RequestBody CriarPedidoRequestDTO dto
             ){
         PedidoResponseDTO pedidoAtualizado = pedidoService.editarPedido(id, dto);
 
@@ -52,7 +53,7 @@ public class AdminPedidoController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<PedidoResponseDTO> atualizarStatusPedido(
             @PathVariable Long id,
-            @RequestBody AtualizarStatusPedidoDTO status
+            @Valid @RequestBody AtualizarStatusPedidoDTO status
     ){
         PedidoResponseDTO statusAtualizado = pedidoService.atualizarStatusPedido(id, status);
 
@@ -62,7 +63,7 @@ public class AdminPedidoController {
     @PatchMapping("/{id}/pagamento")
     public ResponseEntity<PedidoResponseDTO> atualizarFormaPagamento(
             @PathVariable Long id,
-            @RequestBody AtualizarPagamentoPedidoDTO pagamentoDTO
+            @Valid @RequestBody AtualizarPagamentoPedidoDTO pagamentoDTO
     ){
         PedidoResponseDTO pagamentoAtualizado = pedidoService.atualizarFormaDePagamento(id, pagamentoDTO);
 
@@ -72,7 +73,7 @@ public class AdminPedidoController {
     @PatchMapping("/{id}/desconto")
     public ResponseEntity<PedidoResponseDTO> aplicarDescontoManual(
             @PathVariable Long id,
-            @RequestBody AplicarDescontoPedidoDTO dto
+            @Valid @RequestBody AplicarDescontoPedidoDTO dto
             ){
         PedidoResponseDTO descontoAplicado = pedidoService.aplicarDescontoManual(id, dto);
 
@@ -82,7 +83,7 @@ public class AdminPedidoController {
     @PostMapping("/{pedidoId}/itens")
     public ResponseEntity<PedidoResponseDTO> adicionarItemAoPedido(
             @PathVariable Long pedidoId,
-            @RequestBody ItemPedidoRequestDTO dto
+            @Valid @RequestBody ItemPedidoRequestDTO dto
     ){
         PedidoResponseDTO pedidoAtualizado = pedidoService.adicionarItemAoPedido(pedidoId, dto);
 
@@ -105,10 +106,10 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> atualizarAdicionaisDoItem(
             @PathVariable Long pedidoId,
             @PathVariable Long itemId,
-            @RequestBody List<ItemPedidoAdicionalRequestDTO> adicionalDTO
+            @Valid @RequestBody List<ItemPedidoAdicionalRequestDTO> adicionalDTO
     ){
         PedidoResponseDTO adicionalAtualizado =
-                pedidoService.atualizarAdicionaisDoItem(itemId, pedidoId, adicionalDTO);
+                pedidoService.atualizarAdicionaisDoItem(pedidoId, itemId, adicionalDTO);
 
         return ResponseEntity.ok(adicionalAtualizado);
     }

@@ -7,7 +7,9 @@ import com.pitsdog.api.pedido.entity.Adicional;
 import com.pitsdog.api.pedido.entity.ItemPedido;
 import com.pitsdog.api.pedido.entity.ItemPedidoAdicional;
 import com.pitsdog.api.pedido.repository.AdicionalRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -24,12 +26,12 @@ public class AdicionalService {
 
     private Adicional buscarAdicionalEntityById(Long id) {
         return adicionalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Adicional não encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Adicional não encontrado"));
     }
 
-    private Integer quantidadeOuUm(Integer quantidade) {
-        if (quantidade == null || quantidade <= 0) {
-            return 1;
+    private Integer validarQuantidade(Integer quantidade) {
+        if (quantidade == null || quantidade < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantidade deve ser maior ou igual a 1");
         }
 
         return quantidade;
@@ -37,11 +39,11 @@ public class AdicionalService {
 
     private void validarAdicionalDTO(AdicionalRequestDTO dto) {
         if (dto.getNomeAdicional() == null || dto.getNomeAdicional().isBlank()) {
-            throw new RuntimeException("Nome do adicional é obrigatório");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do adicional é obrigatório");
         }
 
         if (dto.getPreco() == null || dto.getPreco().compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Preço do adicional não pode ser negativo");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Preço do adicional não pode ser negativo");
         }
     }
 
@@ -65,9 +67,12 @@ public class AdicionalService {
         }
 
         for (ItemPedidoAdicionalRequestDTO adicionalDTO : adicionaisDTO) {
+            if (adicionalDTO.getAdicionalId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "adicionalId é obrigatório");
+            }
             Adicional adicional = buscarAdicionalEntityById(adicionalDTO.getAdicionalId());
 
-            Integer quantidade = quantidadeOuUm(adicionalDTO.getQuantidade());
+            Integer quantidade = validarQuantidade(adicionalDTO.getQuantidade());
 
             ItemPedidoAdicional itemPedidoAdicional = new ItemPedidoAdicional();
 
@@ -147,7 +152,7 @@ public class AdicionalService {
 
     public AdicionalResponseDTO updateStatus(Long id, Boolean ativo) {
         if (ativo == null) {
-            throw new RuntimeException("Status não pode ser null");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status não pode ser null");
         }
 
         Adicional adicional = buscarAdicionalEntityById(id);

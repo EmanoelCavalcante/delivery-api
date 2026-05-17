@@ -41,10 +41,13 @@ public class ItemPedido {
     @JoinColumn(name = "produto_id")
     private Produto produto;
 
+    @ManyToOne
+    @JoinColumn(name = "combo_id")
+    private Combo combo;
+
     @OneToMany(mappedBy = "itemPedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemPedidoAdicional> adicional = new ArrayList<>();
 
     public ItemPedido() {
     }
 }
-
