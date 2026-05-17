@@ -2,7 +2,6 @@ package com.pitsdog.api.pedido.service;
 
 import com.pitsdog.api.pedido.dto.*;
 import com.pitsdog.api.pedido.entity.*;
-import com.pitsdog.api.pedido.repository.AdicionalRepository;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
 import com.pitsdog.api.produto.entity.Produto;
 import com.pitsdog.api.produto.repository.ProdutoRepository;
@@ -15,63 +14,61 @@ import java.util.List;
 
 @Service
 public class PedidoService {
+
     private final PedidoRepository pedidoRepository;
     private final ProdutoRepository produtoRepository;
-    private final AdicionalRepository adicionalRepository;
+    private final AdicionalService adicionalService;
 
     public PedidoService(
             PedidoRepository pedidoRepository,
             ProdutoRepository produtoRepository,
-            AdicionalRepository adicionalRepository
+            AdicionalService adicionalService
     ) {
         this.pedidoRepository = pedidoRepository;
         this.produtoRepository = produtoRepository;
-        this.adicionalRepository = adicionalRepository;
+        this.adicionalService = adicionalService;
     }
 
-    private Pedido buscarPedidoEntityById(Long id){
+    private Pedido buscarPedidoEntityById(Long id) {
         return pedidoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
     }
 
-    private Produto buscarProdutoById(Long id){
+    private Produto buscarProdutoById(Long id) {
         return produtoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
     }
 
-    private Adicional buscarAdicionalById(Long id){
-        return adicionalRepository.findById(id)
-                .orElseThrow(() ->new RuntimeException("Adicional não encontrado"));
-    }
-
-    private String limparTelefone(String telefone){
-        if(telefone == null || telefone.isBlank()){
+    private String limparTelefone(String telefone) {
+        if (telefone == null || telefone.isBlank()) {
             return null;
         }
+
         return telefone.replaceAll("\\D", "");
     }
 
-    private BigDecimal valorOurZero(BigDecimal valor){
+    private BigDecimal valorOurZero(BigDecimal valor) {
         return valor != null ? valor : BigDecimal.ZERO;
     }
 
-    private Integer quantidadeOuUm(Integer quantidade){
-        if (quantidade == null || quantidade <= 0){
+    private Integer quantidadeOuUm(Integer quantidade) {
+        if (quantidade == null || quantidade <= 0) {
             return 1;
         }
+
         return quantidade;
     }
 
-    private BigDecimal calcularSubtotalItem(ItemPedido item){
+    private BigDecimal calcularSubtotalItem(ItemPedido item) {
         BigDecimal quantidade = BigDecimal.valueOf(quantidadeOuUm(item.getQuantidade()));
 
         BigDecimal subtotalProduto = item.getPrecoUnitario().multiply(quantidade);
 
         BigDecimal subtotalAdicionais = BigDecimal.ZERO;
 
-        if(item.getAdicional() != null){
-            for(ItemPedidoAdicional adicional : item.getAdicional()){
-                subtotalAdicionais = subtotalAdicionais.add((valorOurZero(adicional.getSubtotal())));
+        if (item.getAdicional() != null) {
+            for (ItemPedidoAdicional adicional : item.getAdicional()) {
+                subtotalAdicionais = subtotalAdicionais.add(valorOurZero(adicional.getSubtotal()));
             }
         }
 
@@ -90,20 +87,18 @@ public class PedidoService {
         }
 
         BigDecimal descontoManualValor = valorOurZero(pedido.getDescontoManualValor());
-        BigDecimal descontoManutalPercentual = valorOurZero(pedido.getDescontoManualPercentual());
+        BigDecimal descontoManualPercentual = valorOurZero(pedido.getDescontoManualPercentual());
 
         BigDecimal descontoPercentualCalculado = BigDecimal.ZERO;
 
-        if (descontoManutalPercentual.compareTo(BigDecimal.ZERO) > 0) {
+        if (descontoManualPercentual.compareTo(BigDecimal.ZERO) > 0) {
             descontoPercentualCalculado = subtotal
-                    .multiply(descontoManutalPercentual)
+                    .multiply(descontoManualPercentual)
                     .divide(BigDecimal.valueOf(100));
         }
 
-
         BigDecimal descontoFidelidadeValor = valorOurZero(pedido.getDescontoFidelidadeValor());
-
-        BigDecimal taxaEntrega = valorOurZero((pedido.getTaxaEntrega()));
+        BigDecimal taxaEntrega = valorOurZero(pedido.getTaxaEntrega());
 
         BigDecimal total = subtotal
                 .subtract(descontoManualValor)
@@ -119,7 +114,7 @@ public class PedidoService {
         pedido.setTotal(total);
     }
 
-    private PedidoResponseDTO converterParaResponseDTO(Pedido pedido){
+    private PedidoResponseDTO converterParaResponseDTO(Pedido pedido) {
         PedidoResponseDTO dto = new PedidoResponseDTO();
 
         dto.setId(pedido.getId());
@@ -155,8 +150,8 @@ public class PedidoService {
 
         List<ItemPedidoResponseDTO> itensResponse = new ArrayList<>();
 
-        if(pedido.getItens() != null){
-            for(ItemPedido itemPedido : pedido.getItens()){
+        if (pedido.getItens() != null) {
+            for (ItemPedido itemPedido : pedido.getItens()) {
                 itensResponse.add(converterItemParaResponseDTO(itemPedido));
             }
         }
@@ -166,14 +161,15 @@ public class PedidoService {
         return dto;
     }
 
-    private ItemPedidoAdicionalResponseDTO converterAdicionalParaResponseDTO (ItemPedidoAdicional adicional){
+    private ItemPedidoAdicionalResponseDTO converterAdicionalParaResponseDTO(ItemPedidoAdicional adicional) {
         ItemPedidoAdicionalResponseDTO dto = new ItemPedidoAdicionalResponseDTO();
 
         dto.setId(adicional.getId());
 
-        if(adicional.getNomeAdicional() != null){
-            dto.setAdicionalId(adicional.getId());
+        if (adicional.getAdicional() != null) {
+            dto.setAdicionalId(adicional.getAdicional().getId());
         }
+
         dto.setNomeAdicional(adicional.getNomeAdicional());
         dto.setQuantidade(adicional.getQuantidade());
         dto.setPrecoUnitario(adicional.getPrecoUnitario());
@@ -182,65 +178,32 @@ public class PedidoService {
         return dto;
     }
 
-    private ItemPedidoResponseDTO converterItemParaResponseDTO(ItemPedido item){
+    private ItemPedidoResponseDTO converterItemParaResponseDTO(ItemPedido item) {
         ItemPedidoResponseDTO dto = new ItemPedidoResponseDTO();
 
         dto.setId(item.getId());
 
-        if(item.getProduto() != null){
+        if (item.getProduto() != null) {
             dto.setProdutoId(item.getProduto().getId());
         }
+
         dto.setNomeProduto(item.getNomeProduto());
         dto.setObservacao(item.getObservacao());
         dto.setQuantidade(item.getQuantidade());
         dto.setPrecoUnitario(item.getPrecoUnitario());
         dto.setSubtotal(item.getSubtotal());
 
-        List<ItemPedidoAdicionalResponseDTO> adicionalResponse = new ArrayList<>();
+        List<ItemPedidoAdicionalResponseDTO> adicionaisResponse = new ArrayList<>();
 
-        if(item.getAdicional() != null){
-            for(ItemPedidoAdicional adicional : item.getAdicional()){
-                adicionalResponse.add(converterAdicionalParaResponseDTO(adicional));
+        if (item.getAdicional() != null) {
+            for (ItemPedidoAdicional adicional : item.getAdicional()) {
+                adicionaisResponse.add(converterAdicionalParaResponseDTO(adicional));
             }
         }
 
-        dto.setAdicionais(adicionalResponse);
+        dto.setAdicionais(adicionaisResponse);
 
         return dto;
-    }
-
-    private List<ItemPedidoAdicional> converterAdicionaisParaEntity(
-            List<ItemPedidoAdicionalRequestDTO> adicionaisDTO,
-            ItemPedido itemPedido
-    ){
-        List<ItemPedidoAdicional> adicionais = new ArrayList<>();
-
-        if(adicionaisDTO == null || adicionaisDTO.isEmpty()){
-            return adicionais;
-        }
-
-        for(ItemPedidoAdicionalRequestDTO adicionalDTO : adicionaisDTO){
-            Adicional adicional = buscarAdicionalById(adicionalDTO.getAdicionalId());
-
-            Integer quantidade = quantidadeOuUm(adicionalDTO.getQuantidade());
-
-            ItemPedidoAdicional itemPedidoAdicional = new ItemPedidoAdicional();
-
-            itemPedidoAdicional.setItemPedido(itemPedido);
-            itemPedidoAdicional.setAdicional(adicional);
-
-            itemPedidoAdicional.setNomeAdicional(adicional.getNomeAdicional());
-            itemPedidoAdicional.setPrecoUnitario(adicional.getPreco());
-            itemPedidoAdicional.setQuantidade(quantidade);
-
-            BigDecimal subtotalAdicional = adicional.getPreco()
-                    .multiply(BigDecimal.valueOf(quantidade));
-
-            itemPedidoAdicional.setSubtotal(subtotalAdicional);
-
-            adicionais.add(itemPedidoAdicional);
-        }
-        return adicionais;
     }
 
     private List<ItemPedido> converterItensParaEntity(
@@ -268,10 +231,11 @@ public class PedidoService {
             itemPedido.setQuantidade(quantidade);
             itemPedido.setObservacao(itemDTO.getObservacao());
 
-            List<ItemPedidoAdicional> adicionais = converterAdicionaisParaEntity(
-                    itemDTO.getAdicionais(),
-                    itemPedido
-            );
+            List<ItemPedidoAdicional> adicionais =
+                    adicionalService.converterAdicionaisParaItemPedido(
+                            itemDTO.getAdicionais(),
+                            itemPedido
+                    );
 
             itemPedido.setAdicional(adicionais);
 
@@ -285,7 +249,27 @@ public class PedidoService {
         return itens;
     }
 
-    public PedidoResponseDTO createPedido(CriarPedidoRequestDTO dto){
+    private ItemPedido buscarItemPedido(Pedido pedido, Long itemId) {
+        if (pedido.getItens() == null || pedido.getItens().isEmpty()) {
+            throw new RuntimeException("Pedido não possui itens");
+        }
+
+        for (ItemPedido item : pedido.getItens()) {
+            if (item.getId().equals(itemId)) {
+                return item;
+            }
+        }
+
+        throw new RuntimeException("Item não encontrado neste pedido");
+    }
+
+    private void validarPedidoEditavel(Pedido pedido) {
+        if (pedido.getStatus() != StatusPedido.ABERTO) {
+            throw new RuntimeException("Pedido não pode mais ser editado");
+        }
+    }
+
+    public PedidoResponseDTO createPedido(CriarPedidoRequestDTO dto) {
         Pedido pedido = new Pedido();
 
         pedido.setTipoPedido(dto.getTipoPedido());
@@ -305,11 +289,10 @@ public class PedidoService {
         pedido.setMomentoPedido(LocalDateTime.now());
         pedido.setStatus(StatusPedido.ABERTO);
 
-        if(pedido.getTipoPedido() == TipoPedido.ENTREGA){
+        if (pedido.getTipoPedido() == TipoPedido.ENTREGA) {
             pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
-        }
-        else{
-            pedido.setTaxaEntrega(valorOurZero(BigDecimal.ZERO));
+        } else {
+            pedido.setTaxaEntrega(BigDecimal.ZERO);
         }
 
         pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
@@ -324,42 +307,42 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+        Pedido pedidoSalvo = pedidoRepository.save(pedido);
 
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoSalvo);
     }
 
-
-    public List<PedidoResponseDTO> listPedidos(){
+    public List<PedidoResponseDTO> listPedidos() {
         List<Pedido> pedidos = pedidoRepository.findAll();
 
         List<PedidoResponseDTO> response = new ArrayList<>();
 
-        for (Pedido pedido : pedidos){
+        for (Pedido pedido : pedidos) {
             response.add(converterParaResponseDTO(pedido));
         }
 
         return response;
     }
 
-    public PedidoResponseDTO buscarPedidoById(Long id){
+    public PedidoResponseDTO buscarPedidoById(Long id) {
         Pedido pedido = buscarPedidoEntityById(id);
 
         return converterParaResponseDTO(pedido);
     }
 
-    public List<PedidoResponseDTO> buscarPedidoByMesa(Integer numeroMesa){
+    public List<PedidoResponseDTO> buscarPedidoByMesa(Integer numeroMesa) {
         List<Pedido> pedidos = pedidoRepository.findByNumeroMesa(numeroMesa);
 
         List<PedidoResponseDTO> response = new ArrayList<>();
 
-        for (Pedido pedido : pedidos){
+        for (Pedido pedido : pedidos) {
             response.add(converterParaResponseDTO(pedido));
         }
+
         return response;
     }
 
-    public PedidoResponseDTO editarPedido(Long id, CriarPedidoRequestDTO dto){
+    public PedidoResponseDTO editarPedido(Long id, CriarPedidoRequestDTO dto) {
         Pedido pedido = buscarPedidoEntityById(id);
 
         pedido.setTipoPedido(dto.getTipoPedido());
@@ -376,10 +359,9 @@ public class PedidoService {
         pedido.setPrevisaoRetirada(dto.getPrevisaoRetirada());
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
-        if(pedido.getTipoPedido() == TipoPedido.ENTREGA){
+        if (pedido.getTipoPedido() == TipoPedido.ENTREGA) {
             pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
-        }
-        else{
+        } else {
             pedido.setTaxaEntrega(BigDecimal.ZERO);
         }
 
@@ -399,10 +381,10 @@ public class PedidoService {
         return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public PedidoResponseDTO arualizarSattusPedido (Long id, AtualizarStatusPedidoDTO dto){
+    public PedidoResponseDTO atualizarStatusPedido(Long id, AtualizarStatusPedidoDTO dto) {
         Pedido pedido = buscarPedidoEntityById(id);
 
-        if(dto.getStatus() == null){
+        if (dto.getStatus() == null) {
             throw new RuntimeException("Status não pode ser null");
         }
 
@@ -413,35 +395,37 @@ public class PedidoService {
         return converterParaResponseDTO(pedidoAtualizado);
     }
 
-   public PedidoResponseDTO atualizarFormaDePagamento(Long id, AtualizarPagamentoPedidoDTO dto){
+    public PedidoResponseDTO atualizarFormaDePagamento(Long id, AtualizarPagamentoPedidoDTO dto) {
         Pedido pedido = buscarPedidoEntityById(id);
 
-        if(dto.getFormaPagamento() == null){
+        if (dto.getFormaPagamento() == null) {
             throw new RuntimeException("Forma de pagamento não pode ser null");
         }
-       pedido.setFormaPagamento(dto.getFormaPagamento());
 
-       Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+        pedido.setFormaPagamento(dto.getFormaPagamento());
 
-       return converterParaResponseDTO(pedidoAtualizado);
-   }
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
-   public PedidoResponseDTO aplicarDescontoManual (Long id, AplicarDescontoPedidoDTO dto){
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+    public PedidoResponseDTO aplicarDescontoManual(Long id, AplicarDescontoPedidoDTO dto) {
         Pedido pedido = buscarPedidoEntityById(id);
 
-       pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
-       pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
+        pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
+        pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
 
-       recalcularValores(pedido);
+        recalcularValores(pedido);
 
-       Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
-       return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
 
-   }
-
-    public PedidoResponseDTO adicionarItemAoPedido(Long pedidoId, ItemPedidoRequestDTO dto){
+    public PedidoResponseDTO adicionarItemAoPedido(Long pedidoId, ItemPedidoRequestDTO dto) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        validarPedidoEditavel(pedido);
 
         List<ItemPedidoRequestDTO> itensDTO = List.of(dto);
 
@@ -456,12 +440,14 @@ public class PedidoService {
         return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public PedidoResponseDTO removerItemDoPedido (Long pedidoId, Long itemId){
+    public PedidoResponseDTO removerItemDoPedido(Long pedidoId, Long itemId) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        validarPedidoEditavel(pedido);
 
         boolean removido = pedido.getItens().removeIf(item -> item.getId().equals(itemId));
 
-        if(!removido){
+        if (!removido) {
             throw new RuntimeException("Item não encontrado neste pedido");
         }
 
@@ -472,39 +458,67 @@ public class PedidoService {
         return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public PedidoResponseDTO atualizarQuantidadeItem(Long pedidoId, Long itemId, Integer quantidade){
+    public PedidoResponseDTO atualizarQuantidadeItem(Long pedidoId, Long itemId, Integer quantidade) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
 
-        for(ItemPedido item : pedido.getItens()){
-            if(item.getId().equals(itemId)){
-                item.setQuantidade(quantidadeOuUm(quantidade));
-                recalcularValores(pedido);
+        validarPedidoEditavel(pedido);
 
-                Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-                return converterParaResponseDTO(pedidoAtualizado);
-            }
-        }
-        throw new RuntimeException("Item não encontrado neste pedido");
+        ItemPedido item = buscarItemPedido(pedido, itemId);
+
+        item.setQuantidade(quantidadeOuUm(quantidade));
+
+        recalcularValores(pedido);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public PedidoResponseDTO atualizarObservacaoItem(Long pedidoId, Long itemId, String observacao){
+    public PedidoResponseDTO atualizarObservacaoItem(Long pedidoId, Long itemId, String observacao) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
 
-        for(ItemPedido item : pedido.getItens()){
-            if(item.getId().equals(itemId)){
-                item.setObservacao(observacao);
+        validarPedidoEditavel(pedido);
 
-                Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-                return converterParaResponseDTO(pedidoAtualizado);
-            }
-        }
-        throw new RuntimeException("Item não encontrado neste pedido");
+        ItemPedido item = buscarItemPedido(pedido, itemId);
+
+        item.setObservacao(observacao);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
     }
 
-    public void removerPedido(Long id){
+    public PedidoResponseDTO atualizarAdicionaisDoItem(
+            Long pedidoId,
+            Long itemId,
+            List<ItemPedidoAdicionalRequestDTO> adicionalDTO
+    ) {
+        Pedido pedido = buscarPedidoEntityById(pedidoId);
+
+        validarPedidoEditavel(pedido);
+
+        ItemPedido item = buscarItemPedido(pedido, itemId);
+
+        List<ItemPedidoAdicional> novosAdicionais =
+                adicionalService.converterAdicionaisParaItemPedido(adicionalDTO, item);
+
+        if (item.getAdicional() == null) {
+            item.setAdicional(new ArrayList<>());
+        }
+
+        item.getAdicional().clear();
+        item.getAdicional().addAll(novosAdicionais);
+
+        recalcularValores(pedido);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+    public void removerPedido(Long id) {
         Pedido pedido = buscarPedidoEntityById(id);
 
         pedidoRepository.delete(pedido);
     }
 }
-

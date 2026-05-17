@@ -19,8 +19,8 @@ public class ProdutoController {
 
 
     @GetMapping
-    public ResponseEntity<List<ProdutoResponseDTO>> getAllProdutos() {
-        return ResponseEntity.ok(produtoService.listAllProdutos());
+    public ResponseEntity<List<ProdutoResponseDTO>> getProdutosAtivos() {
+        return ResponseEntity.ok(produtoService.listProdutosAtivos());
     }
 
     @GetMapping("/{id}")

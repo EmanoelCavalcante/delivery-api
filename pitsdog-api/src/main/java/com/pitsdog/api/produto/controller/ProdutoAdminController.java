@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/produtos/admin")
+@RequestMapping("/admin/produtos")
 public class ProdutoAdminController {
 
     private final ProdutoService produtoService;
@@ -20,7 +20,7 @@ public class ProdutoAdminController {
     }
 
     @PostMapping
-    public ResponseEntity<ProdutoResponseDTO> create(
+    public ResponseEntity<ProdutoResponseDTO> createProduto(
             @RequestBody ProdutoRequestDTO dto
     ){
         ProdutoResponseDTO createdProduto = produtoService.createProduto(dto);
@@ -28,14 +28,6 @@ public class ProdutoAdminController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(createdProduto);
-    }
-
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<ProdutoResponseDTO> updateStatusProduto(
-            @PathVariable Long id,
-            @RequestBody AtualizarStatusProdutoDTO dto
-    ){
-        return ResponseEntity.ok(produtoService.updateStatus(id, dto.ativo()));
     }
 
     @PutMapping("/{id}")
@@ -46,6 +38,14 @@ public class ProdutoAdminController {
         ProdutoResponseDTO updateProduto = produtoService.updateProduto(id, dto);
 
         return ResponseEntity.ok(updateProduto);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ProdutoResponseDTO> updateStatusProduto(
+            @PathVariable Long id,
+            @RequestBody AtualizarStatusProdutoDTO dto
+    ){
+        return ResponseEntity.ok(produtoService.updateStatus(id, dto.ativo()));
     }
 
     @DeleteMapping("/{id}")

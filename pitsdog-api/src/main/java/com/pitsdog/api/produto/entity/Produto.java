@@ -24,13 +24,14 @@ public class Produto {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal preco;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String descricao;
 
     @Column(nullable = false)
     private Boolean ativo = true;
 
-    private String imageUrl;
+    @Column(name = "imagem_url")
+    private String imagemUrl;
 
     @ManyToOne
     @JoinColumn(name = "categoria_id", nullable = false)
@@ -39,13 +40,14 @@ public class Produto {
     public Produto(String nome,
                    BigDecimal preco,
                    String descricao,
-                   String imageUrl,
+                   String imagemUrl,
                    Categoria categoria) {
         this.nome = nome;
         this.preco = preco;
         this.descricao = descricao;
-        this.imageUrl = imageUrl;
+        this.imagemUrl = imagemUrl;
         this.categoria = categoria;
+        this.ativo = true;
     }
 
     public Produto() {

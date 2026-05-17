@@ -5,7 +5,7 @@ public record CategoriaResponseDTO(
         Long id,
         String nome,
         String descricao,
-        String imagem,
+        String imagemUrl,
         Integer ordem,
         boolean ativo
 ) {

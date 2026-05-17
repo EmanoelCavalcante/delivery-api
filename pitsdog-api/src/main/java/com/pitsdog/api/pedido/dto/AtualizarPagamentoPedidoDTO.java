@@ -14,6 +14,6 @@ public class AtualizarPagamentoPedidoDTO {
         this.formaPagamento = formaPagamento;
     }
 
-    public AtualizarFormaDePagamentoDTO() {
+    public AtualizarPagamentoPedidoDTO() {
     }
 }

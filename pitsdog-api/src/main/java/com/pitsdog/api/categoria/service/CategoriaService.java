@@ -23,7 +23,7 @@ public class CategoriaService {
                 categoria.getId(),
                 categoria.getNome(),
                 categoria.getDescricao(),
-                categoria.getImagem(),
+                categoria.getImagemUrl(),
                 categoria.getOrdem(),
                 categoria.isAtivo()
         );
@@ -50,7 +50,7 @@ public class CategoriaService {
         categoria.setAtivo(dto.ativo());
         categoria.setDescricao(dto.descricao());
         categoria.setOrdem(dto.ordem());
-        categoria.setImagem(dto.imagem());
+        categoria.setImagemUrl(dto.imagemUrl());
 
         Categoria categoriaSalva = categoriaRepository.save(categoria);
 
@@ -66,7 +66,7 @@ public class CategoriaService {
 
         categoria.setNome(dto.nome());
         categoria.setDescricao(dto.descricao());
-        categoria.setImagem(dto.imagem());
+        categoria.setImagemUrl(dto.imagemUrl());
         categoria.setOrdem(dto.ordem());
         categoria.setAtivo(dto.ativo());
 

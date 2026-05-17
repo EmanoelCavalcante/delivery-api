@@ -25,21 +25,21 @@ public class Categoria {
     @Column(nullable = false)
     private Integer ordem = 0;
 
-    @Column(length = 500)
-    private String imagem;
+    @Column(length = 500, name = "categoria_imagemUrl")
+    private String imagemUrl;
 
     public Categoria(Long id,
                      String nome,
                      boolean ativo,
                      String descricao,
                      Integer ordem,
-                     String imagem) {
+                     String imagemUrl) {
         this.id = id;
         this.nome = nome;
         this.ativo = ativo;
         this.descricao = descricao;
         this.ordem = ordem;
-        this.imagem = imagem;
+        this.imagemUrl = imagemUrl;
     }
 
     public Categoria() {
