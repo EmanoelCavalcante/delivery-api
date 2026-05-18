@@ -7,7 +7,6 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
-
 @Getter
 @Setter
 @Entity
@@ -37,6 +36,9 @@ public class Produto {
     @JoinColumn(name = "categoria_id", nullable = false)
     private Categoria categoria;
 
+    @Column(name = "permite_adicionais", nullable = false)
+    private Boolean permiteAdicionais = true;
+
     public Produto(String nome,
                    BigDecimal preco,
                    String descricao,
@@ -52,4 +54,6 @@ public class Produto {
 
     public Produto() {
     }
+
+
 }

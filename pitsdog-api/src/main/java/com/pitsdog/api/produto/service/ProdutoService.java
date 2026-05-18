@@ -8,6 +8,7 @@ import com.pitsdog.api.produto.entity.Produto;
 import com.pitsdog.api.produto.repository.ProdutoRepository;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -57,6 +58,20 @@ public class ProdutoService {
                 );
     }
 
+    private void aplicarPermiteAdicionaisSePresente(Produto produto, ProdutoRequestDTO dto){
+        try{
+            Method m = dto.getClass().getMethod("getPermiteAdicionais");
+            Object v = m.invoke(dto);
+            if(v instanceof Boolean){
+                Boolean b = (Boolean) v;
+                if(b != null){
+                    produto.setPermiteAdicionais(b);
+                }
+            }
+        }catch (ReflectiveOperationException ignored){
+        }
+    }
+
     public ProdutoResponseDTO createProduto(ProdutoRequestDTO dto){
 
         if(dto.getCategoriaId() == null){
@@ -74,6 +89,8 @@ public class ProdutoService {
                 dto.getImagemUrl(),
                 categoria
         );
+
+        aplicarPermiteAdicionaisSePresente(produto, dto);
 
         if(dto.getAtivo() != null){
             produto.setAtivo(dto.getAtivo());
@@ -122,6 +139,8 @@ public class ProdutoService {
         produto.setImagemUrl(dto.getImagemUrl());
         produto.setAtivo(dto.getAtivo());
         produto.setCategoria(categoria);
+
+        aplicarPermiteAdicionaisSePresente(produto, dto);
 
         if(dto.getAtivo() == null){
             produto.setAtivo(dto.getAtivo());
@@ -176,4 +195,3 @@ public class ProdutoService {
     }
 
 }
-
