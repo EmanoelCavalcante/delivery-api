@@ -142,10 +142,6 @@ public class ProdutoService {
 
         aplicarPermiteAdicionaisSePresente(produto, dto);
 
-        if(dto.getAtivo() == null){
-            produto.setAtivo(dto.getAtivo());
-        }
-
         Produto updateProduto = produtoRepository.save(produto);
 
         return toResponseDTO(updateProduto);
