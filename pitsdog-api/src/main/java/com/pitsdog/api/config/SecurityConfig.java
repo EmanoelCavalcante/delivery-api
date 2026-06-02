@@ -51,7 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/pedidos/**").permitAll()
 
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-
+                        .requestMatchers(HttpMethod.GET, "/health").permitAll()
                         .anyRequest().denyAll()
                 )
 
