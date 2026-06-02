@@ -9,19 +9,30 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig {
 
     @Bean
-    public WebMvcConfigurer corsConfigurer(){
+    public WebMvcConfigurer corsConfigure() {
         return new WebMvcConfigurer() {
 
             @Override
             public void addCorsMappings(CorsRegistry registry){
                 registry.addMapping("/**")
-                        .allowedOrigins(
-                                "http://localhost:5173",
+                        .allowedHeaders(
+                                "http://localhost:5137",
                                 "http://localhost:3000",
-                                "https://pitsdog-site.netlify.app/"
+                                "http://pitsdog-site.netlify.app"
                         )
-                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedMethods(
+                                "GET",
+                                "POST",
+                                "PUT",
+                                "PATCH",
+                                "DELETE",
+                                "OPTIONS"
+                        )
+                        .allowedHeaders(
+                                "Content-Type",
+                                "Authorization"
+                        )
+                        .maxAge(3600);
             }
         };
     }

@@ -9,8 +9,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-import static java.awt.SystemColor.info;
-
 @Configuration
 public class OpenApiConfig {
 

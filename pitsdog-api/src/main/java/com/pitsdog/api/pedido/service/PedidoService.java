@@ -9,6 +9,7 @@ import com.pitsdog.api.produto.repository.ProdutoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,17 +23,31 @@ public class PedidoService {
     private final ProdutoRepository produtoRepository;
     private final ComboRepository comboRepository;
     private final AdicionalService adicionalService;
+    private final BigDecimal taxaEntregaPadrao;
 
     public PedidoService(
             PedidoRepository pedidoRepository,
             ProdutoRepository produtoRepository,
             ComboRepository comboRepository,
-            AdicionalService adicionalService
+            AdicionalService adicionalService,
+            @Value("${TAXA_ENTREGA_PADRAO:0.00}") BigDecimal taxaEntregaPadrao
     ) {
         this.pedidoRepository = pedidoRepository;
         this.produtoRepository = produtoRepository;
         this.comboRepository = comboRepository;
         this.adicionalService = adicionalService;
+        this.taxaEntregaPadrao = taxaEntregaPadrao;
+
+        if(taxaEntregaPadrao == null || taxaEntregaPadrao.compareTo(BigDecimal.ZERO) < 0){
+            throw new IllegalStateException("TAXA_ENTREGA_PADRAO deve ser maior ou igual a zero.");
+        }
+    }
+
+    private BigDecimal calcularTaxaEntrega(TipoPedido tipoPedido){
+        if(tipoPedido == TipoPedido.ENTREGA){
+            return taxaEntregaPadrao;
+        }
+        return BigDecimal.ZERO;
     }
 
     private Pedido buscarPedidoEntityById(Long id) {
@@ -88,6 +103,79 @@ public class PedidoService {
             if (dto.getNumeroMesa() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "numeroMesa é obrigatório para MESA");
             }
+        }
+    }
+
+    private void validarTransacaoStatus(Pedido pedido, StatusPedido novoStatus){
+        StatusPedido statusAtual = pedido.getStatus();
+
+        if(statusAtual == null){
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido não possui status atual válido."
+            );
+        }
+        if(statusAtual == novoStatus){
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido já está com o status " + novoStatus
+            );
+        }
+        boolean transicaoPermitida = switch (statusAtual){
+            case ABERTO ->
+                novoStatus == StatusPedido.AGUARDANDO_APROVACAO ||
+                        novoStatus == StatusPedido.CANCELADO;
+
+            case AGUARDANDO_APROVACAO ->
+                novoStatus == StatusPedido.APROVADO ||
+                        novoStatus == StatusPedido.CANCELADO;
+
+            case APROVADO ->
+                novoStatus == StatusPedido.PREPARANDO ||
+                        novoStatus == StatusPedido.CANCELADO;
+
+            case PRONTO -> {
+                if(pedido.getTipoPedido() == TipoPedido.ENTREGA){
+                    yield novoStatus == StatusPedido.SAIU_PARA_ENTREGA ||
+                            novoStatus == StatusPedido.CANCELADO;
+                }
+
+                yield novoStatus == StatusPedido.FINALIZADO ||
+                        novoStatus == StatusPedido.CANCELADO;
+
+            }
+            case SAIU_PARA_ENTREGA ->
+                novoStatus == StatusPedido.FINALIZADO ||
+                        novoStatus == StatusPedido.CANCELADO;
+
+            case FINALIZADO, CANCELADO -> false;
+            default -> throw new IllegalStateException("Unexpected value: " + statusAtual);
+        };
+
+        if(!transicaoPermitida){
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Transição de status inválida: "
+                    + statusAtual
+                    + " -> "
+                    + novoStatus
+            );
+        }
+    }
+
+    private void validarPedidoNaoEncerrado(Pedido pedido){
+        if (pedido.getStatus() == StatusPedido.FINALIZADO){
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido finalizado não pode mais ser alterado"
+            );
+        }
+
+        if(pedido.getStatus() == StatusPedido.CANCELADO){
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido cancelado não pode mais ser alterado"
+            );
         }
     }
 
@@ -382,17 +470,12 @@ public class PedidoService {
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
         pedido.setMomentoPedido(LocalDateTime.now());
-        // Evita incompatibilidade com constraints do banco que não aceitam ABERTO.
+
         pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
 
-        if (pedido.getTipoPedido() == TipoPedido.ENTREGA) {
-            pedido.setTaxaEntrega(valorOurZero(dto.getTaxaEntrega()));
-        } else {
-            pedido.setTaxaEntrega(BigDecimal.ZERO);
-        }
-
-        pedido.setDescontoManualPercentual(valorOurZero(dto.getDescontoManualPercentual()));
-        pedido.setDescontoManualValor(valorOurZero(dto.getDescontoManualValor()));
+        pedido.setTaxaEntrega(calcularTaxaEntrega(pedido.getTipoPedido()));
+        pedido.setDescontoManualPercentual(BigDecimal.ZERO);
+        pedido.setDescontoManualValor(BigDecimal.ZERO);
 
         pedido.setDescontoFidelidadePercentual(BigDecimal.ZERO);
         pedido.setDescontoFidelidadeValor(BigDecimal.ZERO);
@@ -400,17 +483,14 @@ public class PedidoService {
         List<ItemPedido> itens = converterItensParaEntity(dto.getItens(), pedido);
 
         pedido.setItens(itens);
-
         recalcularValores(pedido);
 
         Pedido pedidoSalvo = pedidoRepository.save(pedido);
 
-        if (pedidoSalvo.getNumeroPedido() == null && pedidoSalvo.getId() != null) {
-            // Estratégia simples: usar o próprio ID como número do pedido (evita duplicidade).
+        if(pedidoSalvo.getNumeroPedido() == null && pedidoSalvo.getId() != null){
             pedidoSalvo.setNumeroPedido(Math.toIntExact(pedidoSalvo.getId()));
             pedidoSalvo = pedidoRepository.save(pedidoSalvo);
         }
-
         return converterParaResponseDTO(pedidoSalvo);
     }
 
@@ -492,9 +572,14 @@ public class PedidoService {
     public PedidoResponseDTO atualizarStatusPedido(Long id, AtualizarStatusPedidoDTO dto) {
         Pedido pedido = buscarPedidoEntityById(id);
 
-        if (dto.getStatus() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status não pode ser null");
+        if(dto == null || dto.getStatus() == null){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Status não pode ser null"
+            );
         }
+
+        validarTransacaoStatus(pedido, dto.getStatus());
 
         pedido.setStatus(dto.getStatus());
 
