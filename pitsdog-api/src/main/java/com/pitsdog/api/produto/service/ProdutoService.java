@@ -62,11 +62,8 @@ public class ProdutoService {
         try{
             Method m = dto.getClass().getMethod("getPermiteAdicionais");
             Object v = m.invoke(dto);
-            if(v instanceof Boolean){
-                Boolean b = (Boolean) v;
-                if(b != null){
-                    produto.setPermiteAdicionais(b);
-                }
+            if(v instanceof Boolean b){
+                produto.setPermiteAdicionais(b);
             }
         }catch (ReflectiveOperationException ignored){
         }
@@ -92,12 +89,10 @@ public class ProdutoService {
 
         aplicarPermiteAdicionaisSePresente(produto, dto);
 
-        if(dto.getAtivo() != null){
-            produto.setAtivo(dto.getAtivo());
-        }
-        else{
-            produto.setAtivo(true);
-        }
+        // NOTE: A expressão abaixo tem dois possíveis fluxos
+        //   se for nulo: a expressão resulta em true
+        //   se não for: a expressão vira dto.getAtivo()
+        produto.setAtivo(dto.getAtivo() == null || dto.getAtivo());
 
         Produto saveProduto = produtoRepository.save(produto);
 
@@ -141,10 +136,6 @@ public class ProdutoService {
         produto.setCategoria(categoria);
 
         aplicarPermiteAdicionaisSePresente(produto, dto);
-
-        if(dto.getAtivo() == null){
-            produto.setAtivo(dto.getAtivo());
-        }
 
         Produto updateProduto = produtoRepository.save(produto);
 
