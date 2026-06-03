@@ -76,6 +76,7 @@ public class AuthService {
                 .issuedAt(agora)
                 .expiresAt(expiracao)
                 .subject(adminEmail)
+                .claim("role", "ADMIN")
                 .build();
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
