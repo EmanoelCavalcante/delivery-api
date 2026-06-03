@@ -29,7 +29,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             @Value("${ADMIN_PASSWORD_HASH}")String adminPasswordHash,
             @Value("${ADMIN_EMAIL}")String adminEmail,
-            @Value("${JWT_EXPIRATION_SECONDS:3600}")long jwtExpirationSeconds) {
+            @Value("${JWT_EXPIRATION_SECONDS:10800}")long jwtExpirationSeconds) {
         this.jwtEncoder = jwtEncoder;
         this.passwordEncoder = passwordEncoder;
         this.adminEmail = adminEmail;

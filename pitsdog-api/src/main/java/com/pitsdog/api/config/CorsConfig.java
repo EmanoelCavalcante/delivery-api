@@ -32,7 +32,7 @@ public class CorsConfig {
                                 "Content-Type",
                                 "Authorization"
                         )
-                        .maxAge(3600);
+                        .maxAge(10800);
             }
         };
     }
