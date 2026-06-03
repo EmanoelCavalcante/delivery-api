@@ -16,7 +16,7 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry){
                 registry.addMapping("/**")
                         .allowedHeaders(
-                                "http://localhost:5137",
+                                "http://localhost:5173",
                                 "http://localhost:3000",
                                 "http://pitsdog-site.netlify.app"
                         )
