@@ -2,13 +2,10 @@ package com.pitsdog.api.produto.entity;
 
 import com.pitsdog.api.categoria.entity.Categoria;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+
 
 import java.math.BigDecimal;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "produtos")
 public class Produto {
@@ -55,5 +52,67 @@ public class Produto {
     public Produto() {
     }
 
+    public Long getId() {
+        return id;
+    }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public BigDecimal getPreco() {
+        return preco;
+    }
+
+    public void setPreco(BigDecimal preco) {
+        this.preco = preco;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
+    }
+
+    public Boolean getAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
+    }
+
+    public String getImagemUrl() {
+        return imagemUrl;
+    }
+
+    public void setImagemUrl(String imagemUrl) {
+        this.imagemUrl = imagemUrl;
+    }
+
+    public Categoria getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(Categoria categoria) {
+        this.categoria = categoria;
+    }
+
+    public Boolean getPermiteAdicionais() {
+        return permiteAdicionais;
+    }
+
+    public void setPermiteAdicionais(Boolean permiteAdicionais) {
+        this.permiteAdicionais = permiteAdicionais;
+    }
 }
