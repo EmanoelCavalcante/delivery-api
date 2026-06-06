@@ -61,6 +61,7 @@ public class AuthService {
         boolean emailValido = adminEmail.equalsIgnoreCase(emailInformado);
         boolean senhaValida = passwordEncoder.matches(senhaInformada, adminPasswordHash);
 
+
         if(!emailValido || !senhaValida){
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
