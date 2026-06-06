@@ -21,7 +21,7 @@ public class CategoriaController {
         this.categoriaService = categoriaService;
     }
 
-    @GetMapping("/{id}")
+    @GetMapping
     public ResponseEntity<List<CategoriaResponseDTO>> listCategoria(){
         List<CategoriaResponseDTO> categorias =
                 categoriaService.listCategorias();
