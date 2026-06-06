@@ -86,7 +86,7 @@ public class SecurityConfig {
                          * ele expõe telefone, endereço e dados do pedido.
                          */
 
-                        .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                        .requestMatchers("/health").permitAll()
 
                         .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
 
