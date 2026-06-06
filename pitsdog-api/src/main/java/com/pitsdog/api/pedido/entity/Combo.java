@@ -11,19 +11,26 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "combo")
+@Table(name = "combos")
 public class Combo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 225)
     private String nome;
 
+    @Column(columnDefinition = "TEXT")
     private String descricao;
 
+    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal preco;
 
-    private Boolean ativo;
+    @Column(name = "imagem_url")
+    private String imagemUrl;
+
+    @Column(nullable = false)
+    private Boolean ativo = true;
 
     @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ComboItem> itens = new ArrayList<>();
