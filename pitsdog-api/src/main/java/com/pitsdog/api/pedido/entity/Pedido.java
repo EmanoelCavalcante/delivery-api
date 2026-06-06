@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 @Getter
@@ -35,7 +34,7 @@ public class Pedido {
     private String ruaEntrega;
 
     // Mantemos o nome do atributo interno por compatibilidade com o schema atual.
-    // Externamente, usamos getter/setter "Complemento" para alinhar com o DTO/JSON.
+    //    // Externamente, usamos getter/setter "Complemento" para alinhar com o DTO/JSON.
     private String complmeneto;
 
     private Integer numeroCasa;
@@ -63,6 +62,13 @@ public class Pedido {
     @Enumerated(EnumType.STRING)
     private TipoPedido tipoPedido;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origem_pedido", nullable = false)
+    private OrigemPedido origemPedido;
+
+    @Column(columnDefinition = "TEXT")
+    private String observacao;
+
     @ManyToOne
     @JoinColumn(name = "combo_id")
     private Combo combo;
@@ -80,6 +86,10 @@ public class Pedido {
 
         if (this.status == null) {
             this.status = StatusPedido.AGUARDANDO_APROVACAO;
+        }
+
+        if(this.origemPedido == null){
+            this.origemPedido = OrigemPedido.SITE;
         }
     }
 

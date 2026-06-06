@@ -1,8 +1,10 @@
 package com.pitsdog.api.pedido.controller;
 
 import com.pitsdog.api.pedido.dto.*;
+import com.pitsdog.api.pedido.service.ComandaService;
 import com.pitsdog.api.pedido.service.PedidoService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,9 +14,11 @@ import java.util.List;
 @RequestMapping("/admin/pedidos")
 public class AdminPedidoController {
     private final PedidoService pedidoService;
+    private final ComandaService comandaService;
 
-    public AdminPedidoController(PedidoService pedidoService) {
+    public AdminPedidoController(PedidoService pedidoService, ComandaService comandaService) {
         this.pedidoService = pedidoService;
+        this.comandaService = comandaService;
     }
 
     @GetMapping
@@ -38,6 +42,25 @@ public class AdminPedidoController {
         List<PedidoResponseDTO> pedidos = pedidoService.buscarPedidoByMesa(numeroMesa);
 
         return ResponseEntity.ok(pedidos);
+    }
+
+    @GetMapping("/{id}/comanda")
+    public ResponseEntity<ComandaPedidoResponseDTO> gerarComanda(
+            @PathVariable Long id
+    ){
+        PedidoDTO pedido = pedidoService.buscarPedidoDTOCompletoPorId(id);
+
+        ComandaPedidoResponseDTO comanda = comandaService.gerarComanda(pedido);
+
+        return ResponseEntity.ok(comanda);
+    }
+
+    @PostMapping
+    public ResponseEntity<PedidoResponseDTO> createPedido(
+            @Valid @RequestBody CriarPedidoRequestDTO dto
+    ){
+        PedidoResponseDTO pedido = pedidoService.createPedido(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(pedido);
     }
 
     @PutMapping("/{id}")
@@ -142,5 +165,4 @@ public class AdminPedidoController {
 
         return ResponseEntity.ok(pedidoAtualizado);
     }
-
 }

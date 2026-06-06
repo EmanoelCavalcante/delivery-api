@@ -29,7 +29,7 @@ public class ItemPedidoResponseDTO {
 
     private BigDecimal subtotal;
 
-    private List<ItemPedidoAdicionalResponseDTO> adicionais;
+    private List<ItemPedidoAdicionalDTO> adicionais;
 
     public ItemPedidoResponseDTO() {
     }

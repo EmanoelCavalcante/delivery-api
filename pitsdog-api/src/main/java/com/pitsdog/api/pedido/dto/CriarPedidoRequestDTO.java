@@ -1,6 +1,7 @@
 package com.pitsdog.api.pedido.dto;
 
 import com.pitsdog.api.pedido.entity.FormaPagamento;
+import com.pitsdog.api.pedido.entity.OrigemPedido;
 import com.pitsdog.api.pedido.entity.TipoPedido;
 import lombok.Getter;
 import lombok.Setter;
@@ -34,6 +35,10 @@ public class CriarPedidoRequestDTO {
     private Integer numeroCasa;
 
     private String complemento;
+
+    private OrigemPedido origemPedido;
+
+    private String observacao;
 
     private LocalDateTime previsaoRetirada;
 

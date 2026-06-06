@@ -2,8 +2,7 @@ package com.pitsdog.api.pedido.controller;
 
 
 import com.pitsdog.api.pedido.dto.CriarPedidoRequestDTO;
-import com.pitsdog.api.pedido.dto.ItemPedidoAdicionalRequestDTO;
-import com.pitsdog.api.pedido.dto.ItemPedidoRequestDTO;
+
 import com.pitsdog.api.pedido.dto.PedidoResponseDTO;
 import com.pitsdog.api.pedido.service.PedidoService;
 import jakarta.validation.Valid;

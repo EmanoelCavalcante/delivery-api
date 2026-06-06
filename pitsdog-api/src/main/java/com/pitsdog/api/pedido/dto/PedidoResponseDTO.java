@@ -1,6 +1,7 @@
 package com.pitsdog.api.pedido.dto;
 
 import com.pitsdog.api.pedido.entity.FormaPagamento;
+import com.pitsdog.api.pedido.entity.OrigemPedido;
 import com.pitsdog.api.pedido.entity.StatusPedido;
 import com.pitsdog.api.pedido.entity.TipoPedido;
 import lombok.Getter;
@@ -34,6 +35,10 @@ public class PedidoResponseDTO {
 
     private String complemento;
 
+    private OrigemPedido origemPedido;
+
+    private String observacao;
+
     private StatusPedido status;
 
     private LocalDateTime momentoPedido;
@@ -56,5 +61,5 @@ public class PedidoResponseDTO {
 
     private FormaPagamento formaPagamento;
 
-    private List<ItemPedidoResponseDTO> itens;
+    private List<ItemPedidoDTO> itens;
 }
