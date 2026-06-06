@@ -1,4 +1,6 @@
 package com.pitsdog.api.notificacao.service;
 
-public class WhatsAppService {
+public interface WhatsAppService {
+
+    void enviarMensagem(String telefone, String mensagem);
 }
