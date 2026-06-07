@@ -2,10 +2,10 @@ package com.pitsdog.api.loja.service;
 
 import com.pitsdog.api.loja.dto.AtualizarLojaRequestDTO;
 import com.pitsdog.api.loja.dto.LojaStatusReponseDTO;
-import com.pitsdog.api.loja.entity.EstadoOperacao;
+import com.pitsdog.api.loja.enums.EstadoOperacao;
 import com.pitsdog.api.loja.entity.LojaConfiguracao;
 import com.pitsdog.api.loja.repository.LojaConfiguracaoRepository;
-import com.pitsdog.api.pedido.entity.TipoPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;

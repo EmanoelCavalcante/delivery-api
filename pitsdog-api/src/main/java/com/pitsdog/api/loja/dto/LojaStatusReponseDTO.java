@@ -1,7 +1,7 @@
 package com.pitsdog.api.loja.dto;
 
 
-import com.pitsdog.api.loja.entity.EstadoOperacao;
+import com.pitsdog.api.loja.enums.EstadoOperacao;
 import lombok.Getter;
 import lombok.Setter;
 

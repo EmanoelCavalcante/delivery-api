@@ -1,4 +1,4 @@
-package com.pitsdog.api.loja.entity;
+package com.pitsdog.api.loja.enums;
 
 public enum EstadoOperacao {
     ABERTA,
