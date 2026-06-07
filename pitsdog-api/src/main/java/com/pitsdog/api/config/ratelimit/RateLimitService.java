@@ -45,6 +45,8 @@ public class RateLimitService {
         RateLimitProperties.Regra regra = switch(tipo){
             case LOGIN -> properties.getLogin();
             case CONSULTA_PUBLICA -> properties.getConsultaPublica();
+            case PEDIDO_PUBLICO -> properties.getPedidoPublico();
+            case ADMIN -> properties.getAdmin();
         };
 
         return Bucket.builder()
@@ -80,6 +82,8 @@ public class RateLimitService {
 
         validarRegra(RateLimitTipo.LOGIN, properties.getLogin());
         validarRegra(RateLimitTipo.CONSULTA_PUBLICA, properties.getConsultaPublica());
+        validarRegra(RateLimitTipo.PEDIDO_PUBLICO, properties.getPedidoPublico());
+        validarRegra(RateLimitTipo.ADMIN, properties.getAdmin());
 
 
         if(properties.getCache().getExpiracaoMinutos() <= 0){

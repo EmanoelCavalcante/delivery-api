@@ -73,7 +73,12 @@ public class SecurityConfig {
                                 "/combos/",
                                 "/combos/**",
 
-                                "/loja/status"
+                                "/cardapio",
+                                "/cardapio/",
+                                "/cardapio/**",
+
+                                "/loja/status",
+                                "/loja/config"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.POST,

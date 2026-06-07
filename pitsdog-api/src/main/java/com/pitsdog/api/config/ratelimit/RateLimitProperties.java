@@ -16,6 +16,10 @@ public class RateLimitProperties {
 
     private Regra consultaPublica = new Regra();
 
+    private Regra pedidoPublico = new Regra();
+
+    private Regra admin = new Regra();
+
     private ConfiguracaoCache cache = new ConfiguracaoCache();
 
     @Getter

@@ -72,6 +72,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String metodo = request.getMethod();
         String rota = request.getRequestURI();
 
+        if (HttpMethod.OPTIONS.matches(metodo)) {
+            return null;
+        }
+
         boolean login = HttpMethod.POST.matches(metodo)
                 && "/auth/login".equals(rota);
 
@@ -79,8 +83,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return RateLimitTipo.LOGIN;
         }
 
-        boolean statusLoja = HttpMethod.GET.matches(metodo)
-                && "/loja/status".equals(rota);
+        boolean pedidoPublico = HttpMethod.POST.matches(metodo)
+                && ("/pedidos".equals(rota) || "/pedidos/".equals(rota));
+
+        if (pedidoPublico) {
+            return RateLimitTipo.PEDIDO_PUBLICO;
+        }
+
+        boolean admin = rota.startsWith("/admin/");
+
+        if (admin) {
+            return RateLimitTipo.ADMIN;
+        }
+
+        boolean lojaPublica = HttpMethod.GET.matches(metodo)
+                && ("/loja/status".equals(rota) || "/loja/config".equals(rota));
 
         boolean cardapioPublico = HttpMethod.GET.matches(metodo)
                 && (
@@ -88,16 +105,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         || rota.startsWith("/produtos")
                         || rota.startsWith("/adicionais")
                         || rota.startsWith("/combos")
+                        || rota.startsWith("/cardapio")
         );
 
-        if (statusLoja || cardapioPublico) {
+        if (lojaPublica || cardapioPublico) {
             return RateLimitTipo.CONSULTA_PUBLICA;
         }
 
-        /*
-         * POST /pedidos não entra aqui:
-         * pedidos reais não podem ser bloqueados pelo rate limit.
-         */
         return null;
     }
 
