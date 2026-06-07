@@ -19,6 +19,13 @@ public class ProdutoAdminController {
         this.produtoService = produtoService;
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<ProdutoResponseDTO> getProdutoById(
+            @PathVariable Long id
+    ){
+        return ResponseEntity.ok(produtoService.getProdutoByIdAdmin(id));
+    }
+
     @PostMapping
     public ResponseEntity<ProdutoResponseDTO> createProduto(
             @RequestBody ProdutoRequestDTO dto

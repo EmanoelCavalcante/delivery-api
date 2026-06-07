@@ -4,10 +4,15 @@ import com.pitsdog.api.produto.entity.Produto;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     List<Produto> findByAtivoTrue();
+
+    List<Produto> findByAtivoTrueAndCategoriaAtivoTrue();
+
+    Optional<Produto> findByIdAndAtivoTrueAndCategoriaAtivoTrue(Long id);
 
     List<Produto> findByCategoriaId(Long categoriaId);
 
@@ -15,4 +20,3 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     List<Produto> findByCategoriaIdAndAtivoTrueOrderByNomeAsc(Long categoriaId);
 }
-

@@ -101,15 +101,21 @@ public class ProdutoService {
 
     public ProdutoResponseDTO getProdutoById(Long id){
 
-        Produto produto = produtoRepository.findById(id)
+        Produto produto = produtoRepository.findByIdAndAtivoTrueAndCategoriaAtivoTrue(id)
                 .orElseThrow(()->
                         new RuntimeException("Produto não encontrado"));
 
         return toResponseDTO(produto);
     }
 
+    public ProdutoResponseDTO getProdutoByIdAdmin(Long id){
+        Produto produto = buscarprodutoEntityById(id);
+
+        return toResponseDTO(produto);
+    }
+
     public List<ProdutoResponseDTO> listProdutosAtivos(){
-        return produtoRepository.findByAtivoTrue()
+        return produtoRepository.findByAtivoTrueAndCategoriaAtivoTrue()
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
