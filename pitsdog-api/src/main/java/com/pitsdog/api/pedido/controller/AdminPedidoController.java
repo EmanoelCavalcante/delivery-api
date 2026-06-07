@@ -1,13 +1,21 @@
 package com.pitsdog.api.pedido.controller;
 
 import com.pitsdog.api.pedido.dto.*;
+import com.pitsdog.api.pedido.enums.StatusPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import com.pitsdog.api.pedido.service.ComandaService;
 import com.pitsdog.api.pedido.service.PedidoService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -22,8 +30,20 @@ public class AdminPedidoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PedidoResponseDTO>> listPedido(){
-        List<PedidoResponseDTO> pedidos = pedidoService.listPedidos();
+    public ResponseEntity<Page<PedidoResumoResponseDTO>> listPedido(
+            @PageableDefault(size = 20, sort = "momentoPedido", direction = Sort.Direction.DESC)
+            Pageable pageable,
+            @RequestParam(required = false) StatusPedido status,
+            @RequestParam(required = false) TipoPedido tipoPedido,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dataInicio,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dataFim
+    ){
+        Page<PedidoResumoResponseDTO> pedidos =
+                pedidoService.listPedidosResumo(pageable, status, tipoPedido, dataInicio, dataFim);
 
         return ResponseEntity.ok(pedidos);
     }

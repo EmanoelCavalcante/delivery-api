@@ -4,11 +4,18 @@ import com.pitsdog.api.loja.service.LojaService;
 import com.pitsdog.api.notificacao.service.NotificacaoPedidoService;
 import com.pitsdog.api.pedido.dto.*;
 import com.pitsdog.api.pedido.entity.*;
+import com.pitsdog.api.pedido.enums.OrigemPedido;
+import com.pitsdog.api.pedido.enums.StatusPedido;
+import com.pitsdog.api.pedido.enums.TipoItemPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import com.pitsdog.api.pedido.repository.ComboRepository;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
 import com.pitsdog.api.produto.entity.Produto;
 import com.pitsdog.api.produto.repository.ProdutoRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -717,6 +724,23 @@ public class PedidoService {
         return converterParaResponseDTO(converterParaPedidoDTO(pedido));
     }
 
+    private PedidoResumoResponseDTO converterParaResumoResponseDTO(Pedido pedido) {
+        PedidoResumoResponseDTO dto = new PedidoResumoResponseDTO();
+
+        dto.setId(pedido.getId());
+        dto.setNumeroPedido(pedido.getNumeroPedido());
+        dto.setTipoPedido(pedido.getTipoPedido());
+        dto.setNumeroMesa(pedido.getNumeroMesa());
+        dto.setNomeCliente(pedido.getNomeCliente());
+        dto.setTelefoneCliente(pedido.getTelefoneCliente());
+        dto.setStatus(pedido.getStatus());
+        dto.setMomentoPedido(pedido.getMomentoPedido());
+        dto.setTotal(pedido.getTotal());
+        dto.setFormaPagamento(pedido.getFormaPagamento());
+
+        return dto;
+    }
+
     private PedidoResponseDTO converterParaResponseDTO(PedidoDTO pedidoDTO) {
         PedidoResponseDTO dto = new PedidoResponseDTO();
 
@@ -822,6 +846,45 @@ public class PedidoService {
         }
 
         return converterParaResponseDTO(pedidoSalvo);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PedidoResumoResponseDTO> listPedidosResumo(
+            Pageable pageable,
+            StatusPedido status,
+            TipoPedido tipoPedido,
+            LocalDateTime dataInicio,
+            LocalDateTime dataFim
+    ) {
+        LocalDateTime limite15Dias = LocalDateTime.now().minusDays(15);
+        LocalDateTime inicioFiltro =
+                dataInicio != null && dataInicio.isAfter(limite15Dias)
+                        ? dataInicio
+                        : limite15Dias;
+
+        Specification<Pedido> filtros = (root, query, criteriaBuilder) ->
+                criteriaBuilder.greaterThanOrEqualTo(
+                        root.get("momentoPedido"),
+                        inicioFiltro
+                );
+
+        if (status != null) {
+            filtros = filtros.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("status"), status));
+        }
+
+        if (tipoPedido != null) {
+            filtros = filtros.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("tipoPedido"), tipoPedido));
+        }
+
+        if (dataFim != null) {
+            filtros = filtros.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.lessThanOrEqualTo(root.get("momentoPedido"), dataFim));
+        }
+
+        return pedidoRepository.findAll(filtros, pageable)
+                .map(this::converterParaResumoResponseDTO);
     }
 
     @Transactional(readOnly = true)
