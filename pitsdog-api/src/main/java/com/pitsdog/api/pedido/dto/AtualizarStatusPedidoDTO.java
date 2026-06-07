@@ -1,6 +1,6 @@
 package com.pitsdog.api.pedido.dto;
 
-import com.pitsdog.api.pedido.entity.StatusPedido;
+import com.pitsdog.api.pedido.enums.StatusPedido;
 
 public class AtualizarStatusPedidoDTO {
 

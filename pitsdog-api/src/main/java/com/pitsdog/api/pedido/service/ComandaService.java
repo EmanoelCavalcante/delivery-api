@@ -1,7 +1,8 @@
 package com.pitsdog.api.pedido.service;
 
 import com.pitsdog.api.pedido.dto.*;
-import com.pitsdog.api.pedido.entity.*;
+import com.pitsdog.api.pedido.enums.TipoItemPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

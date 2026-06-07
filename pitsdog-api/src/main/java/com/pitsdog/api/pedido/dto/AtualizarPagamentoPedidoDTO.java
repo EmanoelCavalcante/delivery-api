@@ -1,6 +1,6 @@
 package com.pitsdog.api.pedido.dto;
 
-import com.pitsdog.api.pedido.entity.FormaPagamento;
+import com.pitsdog.api.pedido.enums.FormaPagamento;
 
 public class AtualizarPagamentoPedidoDTO {
 

@@ -1,5 +1,9 @@
 package com.pitsdog.api.pedido.entity;
 
+import com.pitsdog.api.pedido.enums.FormaPagamento;
+import com.pitsdog.api.pedido.enums.OrigemPedido;
+import com.pitsdog.api.pedido.enums.StatusPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.*;

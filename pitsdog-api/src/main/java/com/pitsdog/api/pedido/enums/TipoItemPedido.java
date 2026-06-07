@@ -1,4 +1,4 @@
-package com.pitsdog.api.pedido.entity;
+package com.pitsdog.api.pedido.enums;
 
 public enum TipoItemPedido {
     PRODUTO,

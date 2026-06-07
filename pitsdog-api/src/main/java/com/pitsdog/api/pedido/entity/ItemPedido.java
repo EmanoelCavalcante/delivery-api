@@ -1,6 +1,7 @@
 package com.pitsdog.api.pedido.entity;
 
 
+import com.pitsdog.api.pedido.enums.TipoItemPedido;
 import com.pitsdog.api.produto.entity.Produto;
 import jakarta.persistence.*;
 import lombok.Getter;

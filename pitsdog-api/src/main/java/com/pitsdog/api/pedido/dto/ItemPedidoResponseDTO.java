@@ -1,7 +1,7 @@
 package com.pitsdog.api.pedido.dto;
 
 
-import com.pitsdog.api.pedido.entity.TipoItemPedido;
+import com.pitsdog.api.pedido.enums.TipoItemPedido;
 import lombok.Getter;
 import lombok.Setter;
 

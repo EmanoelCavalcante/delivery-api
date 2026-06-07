@@ -1,7 +1,7 @@
 package com.pitsdog.api.notificacao.service;
 
 import com.pitsdog.api.pedido.entity.Pedido;
-import com.pitsdog.api.pedido.entity.TipoPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

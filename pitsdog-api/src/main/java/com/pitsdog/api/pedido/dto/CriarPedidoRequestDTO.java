@@ -1,8 +1,8 @@
 package com.pitsdog.api.pedido.dto;
 
-import com.pitsdog.api.pedido.entity.FormaPagamento;
-import com.pitsdog.api.pedido.entity.OrigemPedido;
-import com.pitsdog.api.pedido.entity.TipoPedido;
+import com.pitsdog.api.pedido.enums.FormaPagamento;
+import com.pitsdog.api.pedido.enums.OrigemPedido;
+import com.pitsdog.api.pedido.enums.TipoPedido;
 import lombok.Getter;
 import lombok.Setter;
 
