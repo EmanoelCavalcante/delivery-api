@@ -1,6 +1,9 @@
 package com.pitsdog.api.pedido.controller;
 
+import com.pitsdog.api.pagamento.dto.ConfirmarPagamentoPedidoDTO;
+import com.pitsdog.api.pagamento.service.PagamentoService;
 import com.pitsdog.api.pedido.dto.*;
+import com.pitsdog.api.pedido.entity.Pedido;
 import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.pedido.enums.TipoPedido;
 import com.pitsdog.api.pedido.service.ComandaService;
@@ -13,6 +16,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -20,13 +24,20 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/admin/pedidos")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminPedidoController {
     private final PedidoService pedidoService;
     private final ComandaService comandaService;
+    private final PagamentoService pagamentoService;
 
-    public AdminPedidoController(PedidoService pedidoService, ComandaService comandaService) {
+    public AdminPedidoController(
+            PedidoService pedidoService,
+            ComandaService comandaService,
+            PagamentoService pagamentoService
+    ) {
         this.pedidoService = pedidoService;
         this.comandaService = comandaService;
+        this.pagamentoService = pagamentoService;
     }
 
     @GetMapping
@@ -103,6 +114,32 @@ public class AdminPedidoController {
         return ResponseEntity.ok(statusAtualizado);
     }
 
+    @PatchMapping("/{id}/pagamento/confirmar")
+    public ResponseEntity<PedidoResponseDTO> confirmarPagamento(
+            @PathVariable Long id,
+            @Valid @RequestBody ConfirmarPagamentoPedidoDTO dto
+    ){
+        PedidoResponseDTO pedido = pagamentoService.confirmarPagamento(id, dto);
+
+        return ResponseEntity.ok(pedido);
+    }
+
+    @PatchMapping("/{id}/pagamento/cancelar-confirmacao")
+    public ResponseEntity<PedidoResponseDTO> cancelarConfirmacaoPagamento(
+            @PathVariable Long id
+    ){
+        PedidoResponseDTO pedido = pagamentoService.cancelarConfirmacaoPagamento(id);
+
+        return ResponseEntity.ok(pedido);
+    }
+
+    @PatchMapping("/{id}/restaurar")
+    public ResponseEntity<PedidoResponseDTO> restaurarPedidoCancelado(
+            @PathVariable Long id
+    ){
+        return ResponseEntity.ok(pedidoService.restaurarPedidoCancelado(id));
+    }
+
     @PatchMapping("/{id}/pagamento")
     public ResponseEntity<PedidoResponseDTO> atualizarFormaPagamento(
             @PathVariable Long id,
@@ -137,10 +174,10 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> atualizarQuantidadeItem(
             @PathVariable Long pedidoId,
             @PathVariable Long itemId,
-            @RequestBody Integer quantidade
+            @Valid @RequestBody AtualizarQuantidadeItemPedidoDTO dto
     ){
         PedidoResponseDTO pedidoAtualizado =
-                pedidoService.atualizarQuantidadeItem(pedidoId,itemId, quantidade);
+                pedidoService.atualizarQuantidadeItem(pedidoId, itemId, dto.getQuantidade());
 
         return ResponseEntity.ok(pedidoAtualizado);
     }
@@ -169,11 +206,15 @@ public class AdminPedidoController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePedido(
+    public ResponseEntity<PedidoResponseDTO> cancelarPedido(
             @PathVariable Long id
     ){
-        pedidoService.removerPedido(id);
-        return ResponseEntity.noContent().build();
+        AtualizarStatusPedidoDTO dto = new AtualizarStatusPedidoDTO();
+
+        dto.setStatus(StatusPedido.CANCELADO);
+        PedidoResponseDTO pedidoCancelado = pedidoService.atualizarStatusPedido(id, dto);
+
+        return ResponseEntity.ok(pedidoCancelado);
     }
 
     @DeleteMapping("/{pedidoId}/itens/{itemId}")

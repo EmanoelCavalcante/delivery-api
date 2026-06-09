@@ -1,5 +1,6 @@
 package com.pitsdog.api.pedido.dto;
 
+import com.pitsdog.api.pagamento.enums.StatusPagamento;
 import com.pitsdog.api.pedido.enums.FormaPagamento;
 import com.pitsdog.api.pedido.enums.OrigemPedido;
 import com.pitsdog.api.pedido.enums.StatusPedido;
@@ -39,6 +40,16 @@ public class PedidoDTO {
         private String observacao;
 
         private StatusPedido status;
+
+        private StatusPagamento statusPagamento;
+
+        private Boolean pagamentoConfirmado;
+
+        private LocalDateTime momentoPagamentoConfirmado;
+
+        private BigDecimal trocoPara;
+
+        private BigDecimal valorTroco;
 
         private LocalDateTime momentoPedido;
 

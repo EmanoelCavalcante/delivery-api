@@ -1,13 +1,14 @@
 package com.pitsdog.api.pedido.service;
 
 import com.pitsdog.api.loja.service.LojaService;
-import com.pitsdog.api.notificacao.service.NotificacaoPedidoService;
+import com.pitsdog.api.pagamento.service.PagamentoService;
 import com.pitsdog.api.pedido.dto.*;
 import com.pitsdog.api.pedido.entity.*;
 import com.pitsdog.api.pedido.enums.OrigemPedido;
 import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.pedido.enums.TipoItemPedido;
 import com.pitsdog.api.pedido.enums.TipoPedido;
+import com.pitsdog.api.pedido.mapper.PedidoMapper;
 import com.pitsdog.api.pedido.repository.ComboRepository;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
 import com.pitsdog.api.produto.entity.Produto;
@@ -36,7 +37,8 @@ public class PedidoService {
     private final ComboRepository comboRepository;
     private final AdicionalService adicionalService;
     private final LojaService lojaService;
-    private final NotificacaoPedidoService notificacaoPedidoService;
+    private final PagamentoService pagamentoService;
+    private final PedidoMapper pedidoMapper;
     private final BigDecimal taxaEntregaPadrao;
 
     public PedidoService(
@@ -45,7 +47,8 @@ public class PedidoService {
             ComboRepository comboRepository,
             AdicionalService adicionalService,
             LojaService lojaService,
-            NotificacaoPedidoService notificacaoPedidoService,
+            PagamentoService pagamentoService,
+            PedidoMapper pedidoMapper,
             @Value("${TAXA_ENTREGA_PADRAO:0.00}") BigDecimal taxaEntregaPadrao
     ) {
         this.pedidoRepository = pedidoRepository;
@@ -53,7 +56,8 @@ public class PedidoService {
         this.comboRepository = comboRepository;
         this.adicionalService = adicionalService;
         this.lojaService = lojaService;
-        this.notificacaoPedidoService = notificacaoPedidoService;
+        this.pagamentoService = pagamentoService;
+        this.pedidoMapper = pedidoMapper;
         this.taxaEntregaPadrao = taxaEntregaPadrao;
 
         if (taxaEntregaPadrao == null || taxaEntregaPadrao.compareTo(BigDecimal.ZERO) < 0) {
@@ -208,32 +212,26 @@ public class PedidoService {
         }
     }
 
-    private void validarPedidoNaoEncerrado(Pedido pedido) {
-        if (pedido.getStatus() == StatusPedido.FINALIZADO) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Pedido finalizado não pode mais ser alterado"
-            );
-        }
-
+    private void validarPedidoNaoCancelado(Pedido pedido) {
+        // ALTERAÇÃO:
+        // FINALIZADO não bloqueia edição.
+        // O único status que bloqueia edição direta é CANCELADO.
+        // Para editar um pedido cancelado, primeiro o ADMIN precisa restaurar.
         if (pedido.getStatus() == StatusPedido.CANCELADO) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Pedido cancelado não pode mais ser alterado"
+                    "Pedido cancelado não pode ser editado. Restaure o pedido antes de editar."
             );
         }
     }
 
     private void validarPedidoEditavel(Pedido pedido) {
-        validarPedidoNaoEncerrado(pedido);
-
-        if (pedido.getStatus() != StatusPedido.ABERTO
-                && pedido.getStatus() != StatusPedido.AGUARDANDO_APROVACAO) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Pedido não pode mais ser editado"
-            );
-        }
+        // ALTERAÇÃO:
+        // O admin pode editar pedidos em qualquer etapa:
+        // AGUARDANDO_APROVACAO, EM_PREPARO, CONCLUIDO,
+        // SAIU_PARA_ENTREGA, PRONTO_PARA_RETIRADA e FINALIZADO.
+        // Bloqueia somente CANCELADO.
+        validarPedidoNaoCancelado(pedido);
     }
 
     private void validarDescontoManual(BigDecimal percentual, BigDecimal valor) {
@@ -288,101 +286,86 @@ public class PedidoService {
             );
         }
 
-        boolean transicaoPermitida = switch (statusAtual) {
-            case ABERTO ->
-                    novoStatus == StatusPedido.AGUARDANDO_APROVACAO
-                            || novoStatus == StatusPedido.CANCELADO;
+        if (statusAtual == StatusPedido.FINALIZADO) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido finalizado não pode mais ter status alterado"
+            );
+        }
 
-            case AGUARDANDO_APROVACAO ->
-                    novoStatus == StatusPedido.APROVADO
-                            || novoStatus == StatusPedido.CANCELADO;
+        if (statusAtual == StatusPedido.CANCELADO) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido cancelado não pode mais ter status alterado. Restaure o pedido antes."
+            );
+        }
 
-            case APROVADO ->
-                    novoStatus == StatusPedido.PREPARANDO
-                            || novoStatus == StatusPedido.CANCELADO;
+        if (novoStatus == StatusPedido.CANCELADO) {
+            return;
+        }
 
-            case PREPARANDO ->
-                    novoStatus == StatusPedido.PRONTO
-                            || novoStatus == StatusPedido.CANCELADO;
-
-            case PRONTO -> {
-                if (pedido.getTipoPedido() == TipoPedido.ENTREGA) {
-                    yield novoStatus == StatusPedido.SAIU_PARA_ENTREGA
-                            || novoStatus == StatusPedido.CANCELADO;
-                }
-
-                yield novoStatus == StatusPedido.FINALIZADO
-                        || novoStatus == StatusPedido.CANCELADO;
-            }
-
-            case SAIU_PARA_ENTREGA ->
-                    novoStatus == StatusPedido.FINALIZADO
-                            || novoStatus == StatusPedido.CANCELADO;
-
-            case FINALIZADO, CANCELADO -> false;
+        boolean transicaoPermitida = switch (pedido.getTipoPedido()) {
+            case MESA -> validarTransicaoMesa(statusAtual, novoStatus);
+            case ENTREGA -> validarTransicaoEntrega(statusAtual, novoStatus);
+            case RETIRADA -> validarTransicaoRetirada(statusAtual, novoStatus);
         };
 
         if (!transicaoPermitida) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Transição de status inválida: " + statusAtual + " -> " + novoStatus
+                    "Transição de status inválida para pedido do tipo "
+                            + pedido.getTipoPedido()
+                            + ": "
+                            + statusAtual
+                            + " -> "
+                            + novoStatus
             );
         }
     }
 
-    private void notificarMudancaDeStatusSeNecessario(
-            Pedido pedido,
-            StatusPedido statusAnterior,
-            StatusPedido novoStatus
-    ) {
-        if (pedido == null || novoStatus == null) {
-            return;
-        }
+    private boolean validarTransicaoMesa(StatusPedido statusAtual, StatusPedido novoStatus) {
+        return switch (statusAtual) {
+            case AGUARDANDO_APROVACAO ->
+                    novoStatus == StatusPedido.EM_PREPARO;
 
-        if (statusAnterior == novoStatus) {
-            return;
-        }
+            case EM_PREPARO ->
+                    novoStatus == StatusPedido.CONCLUIDO;
 
-        if (deveNotificarPedidoProntoParaRetirada(pedido, novoStatus)) {
-            enviarNotificacaoSemQuebrarPedido(() ->
-                    notificacaoPedidoService.notificarPedidoProntoParaRetirada(pedido)
-            );
-            return;
-        }
+            case CONCLUIDO ->
+                    novoStatus == StatusPedido.FINALIZADO;
 
-        if (deveNotificarPedidoSaiuParaEntrega(pedido, novoStatus)) {
-            enviarNotificacaoSemQuebrarPedido(() ->
-                    notificacaoPedidoService.notificarPedidoSaiuParaEntrega(pedido)
-            );
-        }
+            default -> false;
+        };
     }
 
-    private boolean deveNotificarPedidoProntoParaRetirada(
-            Pedido pedido,
-            StatusPedido novoStatus
-    ) {
-        return pedido.getTipoPedido() == TipoPedido.RETIRADA
-                && novoStatus == StatusPedido.PRONTO
-                && pedido.getTelefoneCliente() != null
-                && !pedido.getTelefoneCliente().isBlank();
+    private boolean validarTransicaoEntrega(StatusPedido statusAtual, StatusPedido novoStatus) {
+        return switch (statusAtual) {
+            case AGUARDANDO_APROVACAO ->
+                    novoStatus == StatusPedido.EM_PREPARO;
+
+            case EM_PREPARO ->
+                    novoStatus == StatusPedido.SAIU_PARA_ENTREGA;
+
+            case SAIU_PARA_ENTREGA ->
+                    novoStatus == StatusPedido.FINALIZADO;
+
+            default -> false;
+        };
     }
 
-    private boolean deveNotificarPedidoSaiuParaEntrega(
-            Pedido pedido,
-            StatusPedido novoStatus
-    ) {
-        return pedido.getTipoPedido() == TipoPedido.ENTREGA
-                && novoStatus == StatusPedido.SAIU_PARA_ENTREGA
-                && pedido.getTelefoneCliente() != null
-                && !pedido.getTelefoneCliente().isBlank();
-    }
+    private boolean validarTransicaoRetirada(StatusPedido statusAtual, StatusPedido novoStatus) {
+        return switch (statusAtual) {
+            case AGUARDANDO_APROVACAO ->
+                    novoStatus == StatusPedido.EM_PREPARO;
 
-    private void enviarNotificacaoSemQuebrarPedido(Runnable acaoNotificacao) {
-        try {
-            acaoNotificacao.run();
-        } catch (Exception exception) {
-            System.out.println("Falha ao enviar notificação do pedido: " + exception.getMessage());
-        }
+            case EM_PREPARO ->
+                    novoStatus == StatusPedido.PRONTO_PARA_RETIRADA;
+
+            case PRONTO_PARA_RETIRADA ->
+                    novoStatus == StatusPedido.FINALIZADO;
+
+            default -> false;
+        };
     }
 
     private BigDecimal calcularSubtotalItem(ItemPedido item) {
@@ -617,168 +600,16 @@ public class PedidoService {
         );
     }
 
-    private PedidoDTO converterParaPedidoDTO(Pedido pedido) {
-        PedidoDTO dto = new PedidoDTO();
-
-        dto.setId(pedido.getId());
-        dto.setNumeroPedido(pedido.getNumeroPedido());
-
-        dto.setTipoPedido(pedido.getTipoPedido());
-        dto.setNumeroMesa(pedido.getNumeroMesa());
-
-        dto.setNomeCliente(pedido.getNomeCliente());
-        dto.setTelefoneCliente(pedido.getTelefoneCliente());
-
-        dto.setBairroEntrega(pedido.getBairroEntrega());
-        dto.setRuaEntrega(pedido.getRuaEntrega());
-        dto.setNumeroCasa(pedido.getNumeroCasa());
-        dto.setComplemento(pedido.getComplemento());
-
-        dto.setOrigemPedido(pedido.getOrigemPedido());
-        dto.setObservacao(pedido.getObservacao());
-        dto.setStatus(pedido.getStatus());
-
-        dto.setMomentoPedido(pedido.getMomentoPedido());
-        dto.setPrevisaoRetirada(pedido.getPrevisaoRetirada());
-
-        dto.setSubtotal(pedido.getSubtotal());
-        dto.setDescontoManualPercentual(pedido.getDescontoManualPercentual());
-        dto.setDescontoManualValor(pedido.getDescontoManualValor());
-
-        dto.setDescontoFidelidadePercentual(pedido.getDescontoFidelidadePercentual());
-        dto.setDescontoFidelidadeValor(pedido.getDescontoFidelidadeValor());
-
-        dto.setTaxaEntrega(pedido.getTaxaEntrega());
-        dto.setTotal(pedido.getTotal());
-
-        dto.setFormaPagamento(pedido.getFormaPagamento());
-
-        List<ItemPedidoDTO> itensDTO = new ArrayList<>();
-
-        if (pedido.getItens() != null) {
-            for (ItemPedido item : pedido.getItens()) {
-                itensDTO.add(converterItemParaItemPedidoDTO(item));
-            }
-        }
-
-        dto.setItens(itensDTO);
-
-        return dto;
-    }
-
-    private ItemPedidoDTO converterItemParaItemPedidoDTO(ItemPedido item) {
-        ItemPedidoDTO dto = new ItemPedidoDTO();
-
-        dto.setId(item.getId());
-        dto.setTipoItem(item.getTipoItem());
-
-        if (item.getProduto() != null) {
-            dto.setProdutoId(item.getProduto().getId());
-            dto.setNomeProduto(item.getProduto().getNome());
-        }
-
-        if (item.getCombo() != null) {
-            dto.setComboId(item.getCombo().getId());
-            dto.setNomeCombo(item.getCombo().getNome());
-        }
-
-        dto.setNomeItem(item.getNomeProduto());
-        dto.setQuantidade(item.getQuantidade());
-        dto.setPrecoUnitario(item.getPrecoUnitario());
-        dto.setSubtotal(item.getSubtotal());
-        dto.setObservacao(item.getObservacao());
-
-        List<ItemPedidoAdicionalDTO> adicionaisDTO = new ArrayList<>();
-
-        if (item.getAdicional() != null) {
-            for (ItemPedidoAdicional adicional : item.getAdicional()) {
-                adicionaisDTO.add(converterAdicionalParaItemPedidoAdicionalDTO(adicional));
-            }
-        }
-
-        dto.setAdicionais(adicionaisDTO);
-
-        return dto;
-    }
-
-    private ItemPedidoAdicionalDTO converterAdicionalParaItemPedidoAdicionalDTO(
-            ItemPedidoAdicional adicional
-    ) {
-        ItemPedidoAdicionalDTO dto = new ItemPedidoAdicionalDTO();
-
-        dto.setId(adicional.getId());
-
-        if (adicional.getAdicional() != null) {
-            dto.setAdicionalId(adicional.getAdicional().getId());
-        }
-
-        dto.setNomeAdicional(adicional.getNomeAdicional());
-        dto.setQuantidade(adicional.getQuantidade());
-        dto.setPrecoUnitario(adicional.getPrecoUnitario());
-        dto.setSubtotal(adicional.getSubtotal());
-
-        return dto;
-    }
-
     private PedidoResponseDTO converterParaResponseDTO(Pedido pedido) {
-        return converterParaResponseDTO(converterParaPedidoDTO(pedido));
+        return pedidoMapper.toPedidoResponseDTO(pedido);
     }
 
     private PedidoResumoResponseDTO converterParaResumoResponseDTO(Pedido pedido) {
-        PedidoResumoResponseDTO dto = new PedidoResumoResponseDTO();
-
-        dto.setId(pedido.getId());
-        dto.setNumeroPedido(pedido.getNumeroPedido());
-        dto.setTipoPedido(pedido.getTipoPedido());
-        dto.setNumeroMesa(pedido.getNumeroMesa());
-        dto.setNomeCliente(pedido.getNomeCliente());
-        dto.setTelefoneCliente(pedido.getTelefoneCliente());
-        dto.setStatus(pedido.getStatus());
-        dto.setMomentoPedido(pedido.getMomentoPedido());
-        dto.setTotal(pedido.getTotal());
-        dto.setFormaPagamento(pedido.getFormaPagamento());
-
-        return dto;
+        return pedidoMapper.toPedidoResumoResponseDTO(pedido);
     }
 
-    private PedidoResponseDTO converterParaResponseDTO(PedidoDTO pedidoDTO) {
-        PedidoResponseDTO dto = new PedidoResponseDTO();
-
-        dto.setId(pedidoDTO.getId());
-        dto.setNumeroPedido(pedidoDTO.getNumeroPedido());
-
-        dto.setTipoPedido(pedidoDTO.getTipoPedido());
-        dto.setNumeroMesa(pedidoDTO.getNumeroMesa());
-
-        dto.setNomeCliente(pedidoDTO.getNomeCliente());
-        dto.setTelefoneCliente(pedidoDTO.getTelefoneCliente());
-
-        dto.setBairroEntrega(pedidoDTO.getBairroEntrega());
-        dto.setRuaEntrega(pedidoDTO.getRuaEntrega());
-        dto.setNumeroCasa(pedidoDTO.getNumeroCasa());
-        dto.setComplemento(pedidoDTO.getComplemento());
-
-        dto.setOrigemPedido(pedidoDTO.getOrigemPedido());
-        dto.setObservacao(pedidoDTO.getObservacao());
-        dto.setStatus(pedidoDTO.getStatus());
-
-        dto.setMomentoPedido(pedidoDTO.getMomentoPedido());
-        dto.setPrevisaoRetirada(pedidoDTO.getPrevisaoRetirada());
-
-        dto.setSubtotal(pedidoDTO.getSubtotal());
-        dto.setDescontoManualPercentual(pedidoDTO.getDescontoManualPercentual());
-        dto.setDescontoManualValor(pedidoDTO.getDescontoManualValor());
-
-        dto.setDescontoFidelidadePercentual(pedidoDTO.getDescontoFidelidadePercentual());
-        dto.setDescontoFidelidadeValor(pedidoDTO.getDescontoFidelidadeValor());
-
-        dto.setTaxaEntrega(pedidoDTO.getTaxaEntrega());
-        dto.setTotal(pedidoDTO.getTotal());
-
-        dto.setFormaPagamento(pedidoDTO.getFormaPagamento());
-        dto.setItens(pedidoDTO.getItens());
-
-        return dto;
+    private PedidoDTO converterParaPedidoDTO(Pedido pedido) {
+        return pedidoMapper.toPedidoDTO(pedido);
     }
 
     private void carregarAdicionaisDosItens(Pedido pedido) {
@@ -827,6 +658,8 @@ public class PedidoService {
 
         pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
 
+        pagamentoService.resetarPagamentoParaPendente(pedido);
+
         pedido.setTaxaEntrega(calcularTaxaEntrega(dto.getTipoPedido()));
         pedido.setDescontoManualPercentual(BigDecimal.ZERO);
         pedido.setDescontoManualValor(BigDecimal.ZERO);
@@ -871,6 +704,16 @@ public class PedidoService {
         if (status != null) {
             filtros = filtros.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.equal(root.get("status"), status));
+        } else {
+            filtros = filtros.and((root, query, criteriaBuilder) ->
+                    root.get("status").in(
+                            StatusPedido.AGUARDANDO_APROVACAO,
+                            StatusPedido.EM_PREPARO,
+                            StatusPedido.CONCLUIDO,
+                            StatusPedido.SAIU_PARA_ENTREGA,
+                            StatusPedido.PRONTO_PARA_RETIRADA
+                    )
+            );
         }
 
         if (tipoPedido != null) {
@@ -997,20 +840,17 @@ public class PedidoService {
 
         Pedido pedido = buscarPedidoEntityById(id);
 
-        StatusPedido statusAnterior = pedido.getStatus();
         StatusPedido novoStatus = dto.getStatus();
 
         validarTransicaoStatus(pedido, novoStatus);
 
         pedido.setStatus(novoStatus);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+        if (novoStatus == StatusPedido.CANCELADO) {
+            pagamentoService.marcarPagamentoComoCancelado(pedido);
+        }
 
-        notificarMudancaDeStatusSeNecessario(
-                pedidoAtualizado,
-                statusAnterior,
-                novoStatus
-        );
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
         return converterParaResponseDTO(pedidoAtualizado);
     }
@@ -1026,7 +866,7 @@ public class PedidoService {
 
         Pedido pedido = buscarPedidoEntityById(id);
 
-        validarPedidoNaoEncerrado(pedido);
+        validarPedidoNaoCancelado(pedido);
 
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
@@ -1048,12 +888,32 @@ public class PedidoService {
 
         Pedido pedido = buscarPedidoEntityById(id);
 
-        validarPedidoNaoEncerrado(pedido);
+        validarPedidoNaoCancelado(pedido);
 
         pedido.setDescontoManualPercentual(valorOuZero(dto.getDescontoManualPercentual()));
         pedido.setDescontoManualValor(valorOuZero(dto.getDescontoManualValor()));
 
         recalcularValores(pedido);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return converterParaResponseDTO(pedidoAtualizado);
+    }
+
+    @Transactional
+    public PedidoResponseDTO restaurarPedidoCancelado(Long id) {
+        Pedido pedido = buscarPedidoEntityById(id);
+
+        if (pedido.getStatus() != StatusPedido.CANCELADO) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Apenas pedidos cancelados podem ser restaurados"
+            );
+        }
+
+        pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
+
+        pagamentoService.resetarPagamentoParaPendente(pedido);
 
         Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 

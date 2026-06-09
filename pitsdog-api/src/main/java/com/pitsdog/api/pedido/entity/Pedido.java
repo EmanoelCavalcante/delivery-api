@@ -1,5 +1,6 @@
 package com.pitsdog.api.pedido.entity;
 
+import com.pitsdog.api.pagamento.enums.StatusPagamento;
 import com.pitsdog.api.pedido.enums.FormaPagamento;
 import com.pitsdog.api.pedido.enums.OrigemPedido;
 import com.pitsdog.api.pedido.enums.StatusPedido;
@@ -59,6 +60,19 @@ public class Pedido {
 
     @Enumerated(EnumType.STRING)
     private FormaPagamento formaPagamento;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusPagamento statusPagamento = StatusPagamento.PENDENTE;
+
+    @Column(nullable = false)
+    private Boolean pagamentoConfirmado = false;
+
+    private LocalDateTime momentoPagamentoConfirmado;
+
+    private BigDecimal trocoPara;
+
+    private BigDecimal valorTroco;
 
     @Enumerated(EnumType.STRING)
     private StatusPedido status;

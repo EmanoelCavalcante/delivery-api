@@ -1,12 +1,11 @@
 package com.pitsdog.api.pedido.enums;
 
 public enum StatusPedido {
-    ABERTO,
-    PRONTO,
     AGUARDANDO_APROVACAO,
-    APROVADO,
-    PREPARANDO,
+    EM_PREPARO,
     SAIU_PARA_ENTREGA,
+    PRONTO_PARA_RETIRADA,
+    CONCLUIDO,
     FINALIZADO,
     CANCELADO
 }

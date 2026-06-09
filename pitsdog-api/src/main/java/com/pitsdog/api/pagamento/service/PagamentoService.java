@@ -1,31 +1,33 @@
 package com.pitsdog.api.pagamento.service;
 
-import com.pitsdog.api.pagamento.dto.PagamentoResponseDTO;
-import com.pitsdog.api.pagamento.entity.Pagamento;
-import com.pitsdog.api.pagamento.enums.ProvedorPagamento;
+import com.pitsdog.api.pagamento.dto.ConfirmarPagamentoPedidoDTO;
 import com.pitsdog.api.pagamento.enums.StatusPagamento;
-import com.pitsdog.api.pagamento.repository.PagamentoRepository;
+import com.pitsdog.api.pedido.dto.PedidoResponseDTO;
 import com.pitsdog.api.pedido.entity.Pedido;
+import com.pitsdog.api.pedido.enums.FormaPagamento;
+import com.pitsdog.api.pedido.enums.StatusPedido;
+import com.pitsdog.api.pedido.mapper.PedidoMapper;
 import com.pitsdog.api.pedido.repository.PedidoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
 public class PagamentoService {
 
-    private final PagamentoRepository pagamentoRepository;
     private final PedidoRepository pedidoRepository;
+    private final PedidoMapper pedidoMapper;
 
     public PagamentoService(
-            PagamentoRepository pagamentoRepository,
-            PedidoRepository pedidoRepository
+            PedidoRepository pedidoRepository,
+            PedidoMapper pedidoMapper
     ) {
-        this.pagamentoRepository = pagamentoRepository;
         this.pedidoRepository = pedidoRepository;
+        this.pedidoMapper = pedidoMapper;
     }
 
     private Pedido buscarPedidoById(Long pedidoId) {
@@ -36,103 +38,107 @@ public class PagamentoService {
                 ));
     }
 
-    private Pagamento buscarPagamentoById(Long pagamentoId) {
-        return pagamentoRepository.findById(pagamentoId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Pagamento não encontrado"
-                ));
+    private void validarPedidoNaoCancelado(Pedido pedido) {
+        if (pedido.getStatus() == StatusPedido.CANCELADO) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Pedido cancelado não pode ser editado. Restaure o pedido antes de editar."
+            );
+        }
     }
 
-    private Pagamento buscarPagamentoByPedidoId(Long pedidoId) {
-        return pagamentoRepository.findByPedidoId(pedidoId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Pagamento não encontrado para este pedido"
-                ));
+    private BigDecimal valorOuZero(BigDecimal valor) {
+        return valor != null ? valor : BigDecimal.ZERO;
     }
 
-    private Pagamento criarPagamentoManualEntity(Pedido pedido) {
-        Pagamento pagamento = new Pagamento();
+    private BigDecimal calcularValorTroco(Pedido pedido, ConfirmarPagamentoPedidoDTO dto) {
+        if (dto.getFormaPagamento() != FormaPagamento.DINHEIRO) {
+            if (dto.getTrocoPara() != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "trocoPara só pode ser informado quando formaPagamento for DINHEIRO"
+                );
+            }
 
-        pagamento.setPedido(pedido);
-        pagamento.setProvedor(ProvedorPagamento.MANUAL);
-        pagamento.setFormaPagamento(pedido.getFormaPagamento());
-        pagamento.setStatusPagamento(StatusPagamento.PENDENTE);
-        pagamento.setValor(pedido.getTotal());
-
-        return pagamento;
-    }
-
-    private PagamentoResponseDTO toResponseDTO(Pagamento pagamento) {
-        PagamentoResponseDTO dto = new PagamentoResponseDTO();
-
-        dto.setId(pagamento.getId());
-
-        if (pagamento.getPedido() != null) {
-            dto.setPedidoId(pagamento.getPedido().getId());
-            dto.setNumeroPedido(pagamento.getPedido().getNumeroPedido());
+            return null;
         }
 
-        dto.setProvedor(pagamento.getProvedor());
-        dto.setFormaPagamento(pagamento.getFormaPagamento());
-        dto.setStatusPagamento(pagamento.getStatusPagamento());
-        dto.setValor(pagamento.getValor());
-        dto.setPixQrCode(pagamento.getPixQrCode());
-        dto.setPixCopiaECola(pagamento.getPixCopiaECola());
-        dto.setCriadoEm(pagamento.getCriadoEm());
-        dto.setAtualizadoEm(pagamento.getAtualizadoEm());
-        dto.setPagoEm(pagamento.getPagoEm());
-        dto.setExpiradoEm(pagamento.getExpiradoEm());
-        dto.setCanceladoEm(pagamento.getCanceladoEm());
+        if (dto.getTrocoPara() == null) {
+            return null;
+        }
 
-        return dto;
+        if (dto.getTrocoPara().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "trocoPara deve ser maior que zero"
+            );
+        }
+
+        BigDecimal total = valorOuZero(pedido.getTotal());
+
+        if (dto.getTrocoPara().compareTo(total) < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "trocoPara não pode ser menor que o total do pedido"
+            );
+        }
+
+        return dto.getTrocoPara().subtract(total);
+    }
+
+    public void marcarPagamentoComoCancelado(Pedido pedido) {
+        pedido.setStatusPagamento(StatusPagamento.CANCELADO);
+        pedido.setPagamentoConfirmado(false);
+        pedido.setMomentoPagamentoConfirmado(null);
+        pedido.setTrocoPara(null);
+        pedido.setValorTroco(null);
+    }
+
+    public void resetarPagamentoParaPendente(Pedido pedido) {
+        pedido.setStatusPagamento(StatusPagamento.PENDENTE);
+        pedido.setPagamentoConfirmado(false);
+        pedido.setMomentoPagamentoConfirmado(null);
+        pedido.setTrocoPara(null);
+        pedido.setValorTroco(null);
     }
 
     @Transactional
-    public PagamentoResponseDTO criarPagamentoManual(Long pedidoId) {
-        if (pagamentoRepository.existsByPedidoId(pedidoId)) {
+    public PedidoResponseDTO confirmarPagamento(Long pedidoId, ConfirmarPagamentoPedidoDTO dto) {
+        if (dto == null || dto.getFormaPagamento() == null) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Pagamento já existe para este pedido"
+                    HttpStatus.BAD_REQUEST,
+                    "Forma de pagamento é obrigatória para confirmar pagamento"
             );
         }
 
         Pedido pedido = buscarPedidoById(pedidoId);
-        Pagamento pagamento = criarPagamentoManualEntity(pedido);
-        Pagamento pagamentoSalvo = pagamentoRepository.save(pagamento);
 
-        return toResponseDTO(pagamentoSalvo);
+        validarPedidoNaoCancelado(pedido);
+
+        BigDecimal valorTroco = calcularValorTroco(pedido, dto);
+
+        pedido.setFormaPagamento(dto.getFormaPagamento());
+        pedido.setStatusPagamento(StatusPagamento.CONFIRMADO);
+        pedido.setPagamentoConfirmado(true);
+        pedido.setMomentoPagamentoConfirmado(LocalDateTime.now());
+        pedido.setTrocoPara(dto.getTrocoPara());
+        pedido.setValorTroco(valorTroco);
+
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
+
+        return pedidoMapper.toPedidoResponseDTO(pedidoAtualizado);
     }
 
     @Transactional
-    public PagamentoResponseDTO confirmarPagamentoManual(Long pedidoId) {
-        Pagamento pagamento = pagamentoRepository.findByPedidoId(pedidoId)
-                .orElseGet(() -> criarPagamentoManualEntity(buscarPedidoById(pedidoId)));
+    public PedidoResponseDTO cancelarConfirmacaoPagamento(Long pedidoId) {
+        Pedido pedido = buscarPedidoById(pedidoId);
 
-        if (pagamento.getStatusPagamento() == StatusPagamento.PAGO) {
-            return toResponseDTO(pagamento);
-        }
+        validarPedidoNaoCancelado(pedido);
 
-        pagamento.setStatusPagamento(StatusPagamento.PAGO);
-        pagamento.setPagoEm(LocalDateTime.now());
+        resetarPagamentoParaPendente(pedido);
 
-        Pagamento pagamentoSalvo = pagamentoRepository.save(pagamento);
+        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
-        return toResponseDTO(pagamentoSalvo);
-    }
-
-    @Transactional(readOnly = true)
-    public PagamentoResponseDTO buscarPorPedido(Long pedidoId) {
-        Pagamento pagamento = buscarPagamentoByPedidoId(pedidoId);
-
-        return toResponseDTO(pagamento);
-    }
-
-    @Transactional(readOnly = true)
-    public PagamentoResponseDTO buscarPorId(Long pagamentoId) {
-        Pagamento pagamento = buscarPagamentoById(pagamentoId);
-
-        return toResponseDTO(pagamento);
+        return pedidoMapper.toPedidoResponseDTO(pedidoAtualizado);
     }
 }
