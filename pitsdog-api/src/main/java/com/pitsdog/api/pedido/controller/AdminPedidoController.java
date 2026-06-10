@@ -59,6 +59,25 @@ public class AdminPedidoController {
         return ResponseEntity.ok(pedidos);
     }
 
+    @GetMapping("/historico")
+    public ResponseEntity<Page<PedidoResumoResponseDTO>> listarHistorico(
+            Pageable pageable,
+            @RequestParam(required = false) StatusPedido status,
+            @RequestParam(required = false) TipoPedido tipoPedido,
+            @RequestParam(required = false) LocalDateTime dataInicio,
+            @RequestParam(required = false) LocalDateTime dataFim
+    ) {
+        Page<PedidoResumoResponseDTO> response = pedidoService.listPedidosHistorico(
+                pageable,
+                status,
+                tipoPedido,
+                dataInicio,
+                dataFim
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> buscarPedidoById(@PathVariable Long id){
         PedidoResponseDTO pedido = pedidoService.buscarPedidoById(id);

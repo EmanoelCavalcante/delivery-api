@@ -4,12 +4,20 @@ import com.pitsdog.api.categoria.dto.CategoriaRequestDTO;
 import com.pitsdog.api.categoria.dto.CategoriaResponseDTO;
 import com.pitsdog.api.categoria.entity.Categoria;
 import com.pitsdog.api.categoria.repository.CategoriaRepository;
+import com.pitsdog.api.pedido.enums.StatusPedido;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @Service
 public class CategoriaService {
+
+    private static final List<StatusPedido> STATUS_FINAIS = List.of(
+            StatusPedido.FINALIZADO,
+            StatusPedido.CANCELADO
+    );
 
     private final CategoriaRepository categoriaRepository;
 
@@ -26,6 +34,15 @@ public class CategoriaService {
                 categoria.getOrdem(),
                 categoria.isAtivo()
         );
+    }
+
+    private void validarCategoriaSemPedidosEmAndamento(Long categoriaId) {
+        if (categoriaRepository.existsVinculadaAPedidosEmAndamento(categoriaId, STATUS_FINAIS)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Não é possível desativar Categoria pois está vinculado a pedidos em andamento."
+            );
+        }
     }
 
     public List<CategoriaResponseDTO> listCategorias(){
@@ -83,6 +100,10 @@ public class CategoriaService {
                 .orElseThrow(() ->
                 new RuntimeException("Categoria não encontrada"));
 
+        if (Boolean.FALSE.equals(ativo)) {
+            validarCategoriaSemPedidosEmAndamento(id);
+        }
+
         categoria.setAtivo(ativo);
 
         Categoria categoriaAtualizada =
@@ -96,7 +117,10 @@ public class CategoriaService {
                 .orElseThrow(()->
                         new RuntimeException("Categoria não encontrada"));
 
-        categoriaRepository.delete(categoria);
+        validarCategoriaSemPedidosEmAndamento(id);
+
+        categoria.setAtivo(false);
+        categoriaRepository.save(categoria);
     }
 }
 

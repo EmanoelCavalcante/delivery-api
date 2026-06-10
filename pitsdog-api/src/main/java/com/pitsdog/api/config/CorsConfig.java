@@ -25,7 +25,7 @@ public class CorsConfig {
                 .filter(origin -> !origin.isBlank())
                 .toList();
 
-        config.setAllowedOrigins(origins);
+        config.setAllowedOriginPatterns(origins);
 
         config.setAllowedMethods(List.of(
                 "GET",
@@ -36,7 +36,11 @@ public class CorsConfig {
                 "OPTIONS"
         ));
 
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept"
+        ));
 
         config.setExposedHeaders(List.of(
                 "Authorization",
@@ -44,9 +48,9 @@ public class CorsConfig {
                 "Retry-After"
         ));
 
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(true);
 
-        config.setMaxAge(10800L);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();

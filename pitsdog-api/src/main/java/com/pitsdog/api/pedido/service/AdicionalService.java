@@ -6,6 +6,7 @@ import com.pitsdog.api.pedido.dto.ItemPedidoAdicionalRequestDTO;
 import com.pitsdog.api.pedido.entity.Adicional;
 import com.pitsdog.api.pedido.entity.ItemPedido;
 import com.pitsdog.api.pedido.entity.ItemPedidoAdicional;
+import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.pedido.repository.AdicionalRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,11 @@ import java.util.List;
 
 @Service
 public class AdicionalService {
+
+    private static final List<StatusPedido> STATUS_FINAIS = List.of(
+            StatusPedido.FINALIZADO,
+            StatusPedido.CANCELADO
+    );
 
     private final AdicionalRepository adicionalRepository;
 
@@ -44,6 +50,15 @@ public class AdicionalService {
 
         if (dto.getPreco() == null || dto.getPreco().compareTo(BigDecimal.ZERO) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Preço do adicional não pode ser negativo");
+        }
+    }
+
+    private void validarAdicionalSemPedidosEmAndamento(Long adicionalId) {
+        if (adicionalRepository.existsVinculadoAPedidosEmAndamento(adicionalId, STATUS_FINAIS)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Não é possível desativar Adicional pois está vinculado a pedidos em andamento."
+            );
         }
     }
 
@@ -157,6 +172,10 @@ public class AdicionalService {
 
         Adicional adicional = buscarAdicionalEntityById(id);
 
+        if (!ativo) {
+            validarAdicionalSemPedidosEmAndamento(id);
+        }
+
         adicional.setAtivo(ativo);
 
         Adicional adicionalAtualizado = adicionalRepository.save(adicional);
@@ -167,6 +186,9 @@ public class AdicionalService {
     public void deleteAdicional(Long id) {
         Adicional adicional = buscarAdicionalEntityById(id);
 
-        adicionalRepository.delete(adicional);
+        validarAdicionalSemPedidosEmAndamento(id);
+
+        adicional.setAtivo(false);
+        adicionalRepository.save(adicional);
     }
 }

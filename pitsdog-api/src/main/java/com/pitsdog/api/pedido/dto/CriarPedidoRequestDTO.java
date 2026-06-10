@@ -3,6 +3,7 @@ package com.pitsdog.api.pedido.dto;
 import com.pitsdog.api.pedido.enums.FormaPagamento;
 import com.pitsdog.api.pedido.enums.OrigemPedido;
 import com.pitsdog.api.pedido.enums.TipoPedido;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,7 +26,10 @@ public class CriarPedidoRequestDTO {
     private Integer numeroMesa;
 
     private String nomeCliente;
-
+    @Pattern(
+            regexp = "^$|^[0-9]{10,11}$",
+            message = "Telefone deve conter 10 ou 11 dígitos"
+    )
     private String telefoneCliente;
 
     private String bairroEntrega;

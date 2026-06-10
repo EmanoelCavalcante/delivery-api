@@ -2,11 +2,14 @@ package com.pitsdog.api.produto.service;
 
 import com.pitsdog.api.categoria.entity.Categoria;
 import com.pitsdog.api.categoria.repository.CategoriaRepository;
+import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.produto.dto.ProdutoRequestDTO;
 import com.pitsdog.api.produto.dto.ProdutoResponseDTO;
 import com.pitsdog.api.produto.entity.Produto;
 import com.pitsdog.api.produto.repository.ProdutoRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -14,6 +17,11 @@ import java.util.List;
 
 @Service
 public class ProdutoService {
+
+    private static final List<StatusPedido> STATUS_FINAIS = List.of(
+            StatusPedido.FINALIZADO,
+            StatusPedido.CANCELADO
+    );
 
     private final ProdutoRepository produtoRepository;
     private final CategoriaRepository categoriaRepository;
@@ -66,6 +74,15 @@ public class ProdutoService {
                 produto.setPermiteAdicionais(b);
             }
         }catch (ReflectiveOperationException ignored){
+        }
+    }
+
+    private void validarProdutoSemPedidosEmAndamento(Long produtoId) {
+        if (produtoRepository.existsVinculadoAPedidosEmAndamento(produtoId, STATUS_FINAIS)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Não é possível desativar Produto pois está vinculado a pedidos em andamento."
+            );
         }
     }
 
@@ -161,6 +178,8 @@ public class ProdutoService {
     public ProdutoResponseDTO desativarProduto(Long id){
         Produto produto = buscarprodutoEntityById(id);
 
+        validarProdutoSemPedidosEmAndamento(id);
+
         produto.setAtivo(false);
 
         Produto produtoAtualizado = produtoRepository.save(produto);
@@ -176,6 +195,11 @@ public class ProdutoService {
             throw new RuntimeException("Status não pode ser null");
         }
         Produto produto = buscarprodutoEntityById(id);
+
+        if (!ativo) {
+            validarProdutoSemPedidosEmAndamento(id);
+        }
+
         produto.setAtivo(ativo);
 
 
@@ -184,11 +208,12 @@ public class ProdutoService {
     }
 
     public void deleteProduto (Long id){
-        if(!produtoRepository.existsById(id)){
-            throw new RuntimeException("Produto não encontrado");
-        }
+        Produto produto = buscarprodutoEntityById(id);
 
-        produtoRepository.deleteById(id);
+        validarProdutoSemPedidosEmAndamento(id);
+
+        produto.setAtivo(false);
+        produtoRepository.save(produto);
     }
 
 }

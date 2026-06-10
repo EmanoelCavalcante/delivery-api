@@ -22,7 +22,7 @@ public class ComboService {
     }
 
     public List<ComboResponseDTO> listarCombosAtivos() {
-        List<Combo> combos = comboRepository.findAll();
+        List<Combo> combos = comboRepository.findByAtivoTrue();
 
         List<ComboResponseDTO> response = new ArrayList<>();
 
