@@ -3,7 +3,6 @@ package com.pitsdog.api.pedido.controller;
 import com.pitsdog.api.pagamento.dto.ConfirmarPagamentoPedidoDTO;
 import com.pitsdog.api.pagamento.service.PagamentoService;
 import com.pitsdog.api.pedido.dto.*;
-import com.pitsdog.api.pedido.entity.Pedido;
 import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.pedido.enums.TipoPedido;
 import com.pitsdog.api.pedido.service.ComandaService;
@@ -26,6 +25,7 @@ import java.util.List;
 @RequestMapping("/admin/pedidos")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminPedidoController {
+
     private final PedidoService pedidoService;
     private final ComandaService comandaService;
     private final PagamentoService pagamentoService;
@@ -40,75 +40,97 @@ public class AdminPedidoController {
         this.pagamentoService = pagamentoService;
     }
 
+    /*
+     * Painel ativo.
+     * Sempre retorna os pedidos mais recentes primeiro.
+     */
     @GetMapping
     public ResponseEntity<Page<PedidoResumoResponseDTO>> listPedido(
-            @PageableDefault(size = 20, sort = "momentoPedido", direction = Sort.Direction.DESC)
+            @PageableDefault(
+                    size = 20,
+                    sort = "momentoPedido",
+                    direction = Sort.Direction.DESC
+            )
             Pageable pageable,
-            @RequestParam(required = false) StatusPedido status,
-            @RequestParam(required = false) TipoPedido tipoPedido,
+
+            @RequestParam(required = false)
+            StatusPedido status,
+
+            @RequestParam(required = false)
+            TipoPedido tipoPedido,
+
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dataInicio,
+
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dataFim
-    ){
+    ) {
         Page<PedidoResumoResponseDTO> pedidos =
                 pedidoService.listPedidosResumo(pageable, status, tipoPedido, dataInicio, dataFim);
 
         return ResponseEntity.ok(pedidos);
     }
 
+    /*
+     * Histórico.
+     * Também precisa de ordenação padrão, senão o banco pode devolver em ordem indefinida.
+     */
     @GetMapping("/historico")
     public ResponseEntity<Page<PedidoResumoResponseDTO>> listarHistorico(
+            @PageableDefault(
+                    size = 20,
+                    sort = "momentoPedido",
+                    direction = Sort.Direction.DESC
+            )
             Pageable pageable,
-            @RequestParam(required = false) StatusPedido status,
-            @RequestParam(required = false) TipoPedido tipoPedido,
-            @RequestParam(required = false) LocalDateTime dataInicio,
-            @RequestParam(required = false) LocalDateTime dataFim
+
+            @RequestParam(required = false)
+            StatusPedido status,
+
+            @RequestParam(required = false)
+            TipoPedido tipoPedido,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dataInicio,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dataFim
     ) {
-        Page<PedidoResumoResponseDTO> response = pedidoService.listPedidosHistorico(
-                pageable,
-                status,
-                tipoPedido,
-                dataInicio,
-                dataFim
-        );
+        Page<PedidoResumoResponseDTO> response =
+                pedidoService.listPedidosHistorico(pageable, status, tipoPedido, dataInicio, dataFim);
 
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PedidoResponseDTO> buscarPedidoById(@PathVariable Long id){
+    public ResponseEntity<PedidoResponseDTO> buscarPedidoById(@PathVariable Long id) {
         PedidoResponseDTO pedido = pedidoService.buscarPedidoById(id);
-
         return ResponseEntity.ok(pedido);
     }
 
     @GetMapping("/mesa/{numeroMesa}")
     public ResponseEntity<List<PedidoResponseDTO>> buscarPedidoByMesa(
             @PathVariable Integer numeroMesa
-    ){
+    ) {
         List<PedidoResponseDTO> pedidos = pedidoService.buscarPedidoByMesa(numeroMesa);
-
         return ResponseEntity.ok(pedidos);
     }
 
     @GetMapping("/{id}/comanda")
-    public ResponseEntity<ComandaPedidoResponseDTO> gerarComanda(
-            @PathVariable Long id
-    ){
+    public ResponseEntity<ComandaPedidoResponseDTO> gerarComanda(@PathVariable Long id) {
         PedidoDTO pedido = pedidoService.buscarPedidoDTOCompletoPorId(id);
-
         ComandaPedidoResponseDTO comanda = comandaService.gerarComanda(pedido);
-
         return ResponseEntity.ok(comanda);
     }
 
     @PostMapping
     public ResponseEntity<PedidoResponseDTO> createPedido(
             @Valid @RequestBody CriarPedidoRequestDTO dto
-    ){
+    ) {
         PedidoResponseDTO pedido = pedidoService.createPedido(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(pedido);
     }
@@ -117,9 +139,8 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> editPedido(
             @PathVariable Long id,
             @Valid @RequestBody CriarPedidoRequestDTO dto
-            ){
+    ) {
         PedidoResponseDTO pedidoAtualizado = pedidoService.editarPedido(id, dto);
-
         return ResponseEntity.ok(pedidoAtualizado);
     }
 
@@ -127,9 +148,8 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> atualizarStatusPedido(
             @PathVariable Long id,
             @Valid @RequestBody AtualizarStatusPedidoDTO status
-    ){
+    ) {
         PedidoResponseDTO statusAtualizado = pedidoService.atualizarStatusPedido(id, status);
-
         return ResponseEntity.ok(statusAtualizado);
     }
 
@@ -137,34 +157,30 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> confirmarPagamento(
             @PathVariable Long id,
             @Valid @RequestBody ConfirmarPagamentoPedidoDTO dto
-    ){
+    ) {
         PedidoResponseDTO pedido = pagamentoService.confirmarPagamento(id, dto);
-
         return ResponseEntity.ok(pedido);
     }
 
     @PatchMapping("/{id}/pagamento/cancelar-confirmacao")
-    public ResponseEntity<PedidoResponseDTO> cancelarConfirmacaoPagamento(
-            @PathVariable Long id
-    ){
+    public ResponseEntity<PedidoResponseDTO> cancelarConfirmacaoPagamento(@PathVariable Long id) {
         PedidoResponseDTO pedido = pagamentoService.cancelarConfirmacaoPagamento(id);
-
         return ResponseEntity.ok(pedido);
     }
 
     @PatchMapping("/{id}/restaurar")
-    public ResponseEntity<PedidoResponseDTO> restaurarPedidoCancelado(
-            @PathVariable Long id
-    ){
-        return ResponseEntity.ok(pedidoService.restaurarPedidoCancelado(id));
+    public ResponseEntity<PedidoResponseDTO> restaurarPedidoCancelado(@PathVariable Long id) {
+        PedidoResponseDTO pedido = pedidoService.restaurarPedidoCancelado(id);
+        return ResponseEntity.ok(pedido);
     }
 
     @PatchMapping("/{id}/pagamento")
     public ResponseEntity<PedidoResponseDTO> atualizarFormaPagamento(
             @PathVariable Long id,
             @Valid @RequestBody AtualizarPagamentoPedidoDTO pagamentoDTO
-    ){
-        PedidoResponseDTO pagamentoAtualizado = pedidoService.atualizarFormaDePagamento(id, pagamentoDTO);
+    ) {
+        PedidoResponseDTO pagamentoAtualizado =
+                pedidoService.atualizarFormaDePagamento(id, pagamentoDTO);
 
         return ResponseEntity.ok(pagamentoAtualizado);
     }
@@ -173,9 +189,8 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> aplicarDescontoManual(
             @PathVariable Long id,
             @Valid @RequestBody AplicarDescontoPedidoDTO dto
-            ){
+    ) {
         PedidoResponseDTO descontoAplicado = pedidoService.aplicarDescontoManual(id, dto);
-
         return ResponseEntity.ok(descontoAplicado);
     }
 
@@ -183,9 +198,8 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> adicionarItemAoPedido(
             @PathVariable Long pedidoId,
             @Valid @RequestBody ItemPedidoRequestDTO dto
-    ){
+    ) {
         PedidoResponseDTO pedidoAtualizado = pedidoService.adicionarItemAoPedido(pedidoId, dto);
-
         return ResponseEntity.ok(pedidoAtualizado);
     }
 
@@ -194,7 +208,7 @@ public class AdminPedidoController {
             @PathVariable Long pedidoId,
             @PathVariable Long itemId,
             @Valid @RequestBody AtualizarQuantidadeItemPedidoDTO dto
-    ){
+    ) {
         PedidoResponseDTO pedidoAtualizado =
                 pedidoService.atualizarQuantidadeItem(pedidoId, itemId, dto.getQuantidade());
 
@@ -206,7 +220,7 @@ public class AdminPedidoController {
             @PathVariable Long pedidoId,
             @PathVariable Long itemId,
             @Valid @RequestBody List<ItemPedidoAdicionalRequestDTO> adicionalDTO
-    ){
+    ) {
         PedidoResponseDTO adicionalAtualizado =
                 pedidoService.atualizarAdicionaisDoItem(pedidoId, itemId, adicionalDTO);
 
@@ -218,21 +232,19 @@ public class AdminPedidoController {
             @PathVariable Long pedidoId,
             @PathVariable Long itemId,
             @RequestBody String observacao
-    ){
-        PedidoResponseDTO observacaoAtualizada = pedidoService.atualizarObservacaoItem(pedidoId, itemId, observacao);
+    ) {
+        PedidoResponseDTO observacaoAtualizada =
+                pedidoService.atualizarObservacaoItem(pedidoId, itemId, observacao);
 
         return ResponseEntity.ok(observacaoAtualizada);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<PedidoResponseDTO> cancelarPedido(
-            @PathVariable Long id
-    ){
+    public ResponseEntity<PedidoResponseDTO> cancelarPedido(@PathVariable Long id) {
         AtualizarStatusPedidoDTO dto = new AtualizarStatusPedidoDTO();
-
         dto.setStatus(StatusPedido.CANCELADO);
-        PedidoResponseDTO pedidoCancelado = pedidoService.atualizarStatusPedido(id, dto);
 
+        PedidoResponseDTO pedidoCancelado = pedidoService.atualizarStatusPedido(id, dto);
         return ResponseEntity.ok(pedidoCancelado);
     }
 
@@ -240,9 +252,8 @@ public class AdminPedidoController {
     public ResponseEntity<PedidoResponseDTO> deleteItemPedido(
             @PathVariable Long pedidoId,
             @PathVariable Long itemId
-    ){
+    ) {
         PedidoResponseDTO pedidoAtualizado = pedidoService.removerItemDoPedido(pedidoId, itemId);
-
         return ResponseEntity.ok(pedidoAtualizado);
     }
 }

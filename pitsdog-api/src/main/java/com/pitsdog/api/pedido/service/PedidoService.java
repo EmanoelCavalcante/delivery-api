@@ -17,7 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,7 +36,14 @@ import java.util.List;
 public class PedidoService {
 
     private static final Logger log = LoggerFactory.getLogger(PedidoService.class);
+
     private static final BigDecimal LIMITE_DESCONTO_PERCENTUAL = BigDecimal.valueOf(35);
+
+    /*
+     * Sort padrão para listagem de pedidos.
+     * Nunca deixe o banco decidir a ordem sozinho.
+     */
+    private static final Sort SORT_PADRAO = Sort.by(Sort.Direction.DESC, "momentoPedido");
 
     private final PedidoRepository pedidoRepository;
     private final ProdutoRepository produtoRepository;
@@ -217,10 +226,6 @@ public class PedidoService {
     }
 
     private void validarPedidoNaoCancelado(Pedido pedido) {
-        // ALTERAÇÃO:
-        // FINALIZADO não bloqueia edição.
-        // O único status que bloqueia edição direta é CANCELADO.
-        // Para editar um pedido cancelado, primeiro o ADMIN precisa restaurar.
         if (pedido.getStatus() == StatusPedido.CANCELADO) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -230,11 +235,6 @@ public class PedidoService {
     }
 
     private void validarPedidoEditavel(Pedido pedido) {
-        // ALTERAÇÃO:
-        // O admin pode editar pedidos em qualquer etapa:
-        // AGUARDANDO_APROVACAO, EM_PREPARO, CONCLUIDO,
-        // SAIU_PARA_ENTREGA, PRONTO_PARA_RETIRADA e FINALIZADO.
-        // Bloqueia somente CANCELADO.
         validarPedidoNaoCancelado(pedido);
     }
 
@@ -322,63 +322,40 @@ public class PedidoService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Transição de status inválida para pedido do tipo "
-                            + pedido.getTipoPedido()
-                            + ": "
-                            + statusAtual
-                            + " -> "
-                            + novoStatus
+                            + pedido.getTipoPedido() + ": " + statusAtual + " -> " + novoStatus
             );
         }
     }
 
     private boolean validarTransicaoMesa(StatusPedido statusAtual, StatusPedido novoStatus) {
         return switch (statusAtual) {
-            case AGUARDANDO_APROVACAO ->
-                    novoStatus == StatusPedido.EM_PREPARO;
-
-            case EM_PREPARO ->
-                    novoStatus == StatusPedido.CONCLUIDO;
-
-            case CONCLUIDO ->
-                    novoStatus == StatusPedido.FINALIZADO;
-
+            case AGUARDANDO_APROVACAO -> novoStatus == StatusPedido.EM_PREPARO;
+            case EM_PREPARO -> novoStatus == StatusPedido.CONCLUIDO;
+            case CONCLUIDO -> novoStatus == StatusPedido.FINALIZADO;
             default -> false;
         };
     }
 
     private boolean validarTransicaoEntrega(StatusPedido statusAtual, StatusPedido novoStatus) {
         return switch (statusAtual) {
-            case AGUARDANDO_APROVACAO ->
-                    novoStatus == StatusPedido.EM_PREPARO;
-
-            case EM_PREPARO ->
-                    novoStatus == StatusPedido.SAIU_PARA_ENTREGA;
-
-            case SAIU_PARA_ENTREGA ->
-                    novoStatus == StatusPedido.FINALIZADO;
-
+            case AGUARDANDO_APROVACAO -> novoStatus == StatusPedido.EM_PREPARO;
+            case EM_PREPARO -> novoStatus == StatusPedido.SAIU_PARA_ENTREGA;
+            case SAIU_PARA_ENTREGA -> novoStatus == StatusPedido.FINALIZADO;
             default -> false;
         };
     }
 
     private boolean validarTransicaoRetirada(StatusPedido statusAtual, StatusPedido novoStatus) {
         return switch (statusAtual) {
-            case AGUARDANDO_APROVACAO ->
-                    novoStatus == StatusPedido.EM_PREPARO;
-
-            case EM_PREPARO ->
-                    novoStatus == StatusPedido.PRONTO_PARA_RETIRADA;
-
-            case PRONTO_PARA_RETIRADA ->
-                    novoStatus == StatusPedido.FINALIZADO;
-
+            case AGUARDANDO_APROVACAO -> novoStatus == StatusPedido.EM_PREPARO;
+            case EM_PREPARO -> novoStatus == StatusPedido.PRONTO_PARA_RETIRADA;
+            case PRONTO_PARA_RETIRADA -> novoStatus == StatusPedido.FINALIZADO;
             default -> false;
         };
     }
 
     private BigDecimal calcularSubtotalItem(ItemPedido item) {
         BigDecimal quantidade = BigDecimal.valueOf(validarQuantidade(item.getQuantidade()));
-
         BigDecimal precoUnitario = valorOuZero(item.getPrecoUnitario());
         BigDecimal subtotalBase = precoUnitario.multiply(quantidade);
 
@@ -461,11 +438,8 @@ public class PedidoService {
             }
 
             ItemPedido itemPedido = new ItemPedido();
-
-            Integer quantidade = validarQuantidade(itemDTO.getQuantidade());
-
             itemPedido.setPedido(pedido);
-            itemPedido.setQuantidade(quantidade);
+            itemPedido.setQuantidade(validarQuantidade(itemDTO.getQuantidade()));
             itemPedido.setObservacao(itemDTO.getObservacao());
 
             if (itemDTO.getTipoItem() == TipoItemPedido.PRODUTO) {
@@ -486,9 +460,7 @@ public class PedidoService {
                     );
 
             itemPedido.setAdicional(adicionais);
-
-            BigDecimal subtotalItem = calcularSubtotalItem(itemPedido);
-            itemPedido.setSubtotal(subtotalItem);
+            itemPedido.setSubtotal(calcularSubtotalItem(itemPedido));
 
             itens.add(itemPedido);
         }
@@ -638,6 +610,30 @@ public class PedidoService {
         }
     }
 
+    /*
+     * Proteção defensiva.
+     * Mesmo que o controller esteja com @PageableDefault,
+     * o service não deixa uma chamada sem sort chegar no banco.
+     */
+    private Pageable garantirSort(Pageable pageable) {
+        if (pageable == null) {
+            log.warn("[PAGEABLE] Pageable null — aplicando fallback: page=0, size=20, momentoPedido DESC");
+            return PageRequest.of(0, 20, SORT_PADRAO);
+        }
+
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+
+        log.warn("[PAGEABLE] Sort ausente — aplicando fallback: momentoPedido DESC");
+
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                SORT_PADRAO
+        );
+    }
+
     @Transactional
     public PedidoResponseDTO createPedido(CriarPedidoRequestDTO dto) {
         validarPedidoRequest(dto);
@@ -648,22 +644,17 @@ public class PedidoService {
 
         pedido.setTipoPedido(dto.getTipoPedido());
         pedido.setNumeroMesa(dto.getNumeroMesa());
-
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
-
         pedido.setBairroEntrega(dto.getBairroEntrega());
         pedido.setRuaEntrega(dto.getRuaEntrega());
         pedido.setNumeroCasa(dto.getNumeroCasa());
         pedido.setComplemento(dto.getComplemento());
-
         pedido.setPrevisaoRetirada(dto.getPrevisaoRetirada());
         pedido.setFormaPagamento(dto.getFormaPagamento());
-
         pedido.setMomentoPedido(LocalDateTime.now());
         pedido.setOrigemPedido(validarOrigemPedidoPublico(dto.getOrigemPedido()));
         pedido.setObservacao(dto.getObservacao());
-
         pedido.setStatus(StatusPedido.AGUARDANDO_APROVACAO);
 
         pagamentoService.resetarPagamentoParaPendente(pedido);
@@ -681,12 +672,21 @@ public class PedidoService {
 
         Pedido pedidoSalvo = pedidoRepository.save(pedido);
 
+        log.info(
+                "[PEDIDO_CRIADO] id={}, numeroPedido={}, status={}, tipo={}, origem={}, momento={}",
+                pedidoSalvo.getId(),
+                pedidoSalvo.getNumeroPedido(),
+                pedidoSalvo.getStatus(),
+                pedidoSalvo.getTipoPedido(),
+                pedidoSalvo.getOrigemPedido(),
+                pedidoSalvo.getMomentoPedido()
+        );
+
         Long idGerado = pedidoSalvo.getId();
+
         if (idGerado != null && idGerado > Integer.MAX_VALUE) {
             log.error("ID gerado {} excede capacidade do campo numeroPedido", idGerado);
-            throw new IllegalStateException(
-                    "Limite de numeroPedido atingido. Contate o suporte."
-            );
+            throw new IllegalStateException("Limite de numeroPedido atingido. Contate o suporte.");
         }
 
         return converterParaResponseDTO(pedidoSalvo);
@@ -700,6 +700,10 @@ public class PedidoService {
             LocalDateTime dataInicio,
             LocalDateTime dataFim
     ) {
+        pageable = garantirSort(pageable);
+
+        long inicio = System.currentTimeMillis();
+
         LocalDateTime limite15Dias = LocalDateTime.now().minusDays(15);
 
         LocalDateTime inicioFiltro =
@@ -707,29 +711,51 @@ public class PedidoService {
                         ? dataInicio
                         : limite15Dias;
 
-        Specification<Pedido> filtros = (root, query, criteriaBuilder) ->
-                criteriaBuilder.greaterThanOrEqualTo(
-                        root.get("momentoPedido"),
-                        inicioFiltro
-                );
+        Specification<Pedido> filtros = (root, query, cb) ->
+                cb.greaterThanOrEqualTo(root.get("momentoPedido"), inicioFiltro);
 
         if (status != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("status"), status));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.equal(root.get("status"), status)
+            );
         }
 
         if (tipoPedido != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("tipoPedido"), tipoPedido));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.equal(root.get("tipoPedido"), tipoPedido)
+            );
         }
 
         if (dataFim != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.lessThanOrEqualTo(root.get("momentoPedido"), dataFim));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("momentoPedido"), dataFim)
+            );
         }
 
-        return pedidoRepository.findAll(filtros, pageable)
-                .map(this::converterParaResumoResponseDTO);
+        Page<PedidoResumoResponseDTO> resultado =
+                pedidoRepository.findAll(filtros, pageable)
+                        .map(this::converterParaResumoResponseDTO);
+
+        log.info(
+                "[HISTORICO] total={}, pagina={}, tamanho={}, sort={}, filtroStatus={}, filtroInicio={}, duracao={}ms",
+                resultado.getTotalElements(),
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort(),
+                status,
+                inicioFiltro,
+                System.currentTimeMillis() - inicio
+        );
+
+        if (!resultado.isEmpty()) {
+            log.debug(
+                    "[HISTORICO] primeiro={}, ultimo={}",
+                    resultado.getContent().get(0).getMomentoPedido(),
+                    resultado.getContent().get(resultado.getContent().size() - 1).getMomentoPedido()
+            );
+        }
+
+        return resultado;
     }
 
     @Transactional(readOnly = true)
@@ -740,23 +766,26 @@ public class PedidoService {
             LocalDateTime dataInicio,
             LocalDateTime dataFim
     ) {
+        pageable = garantirSort(pageable);
+
+        long inicio = System.currentTimeMillis();
+
         LocalDateTime limite15Dias = LocalDateTime.now().minusDays(15);
+
         LocalDateTime inicioFiltro =
                 dataInicio != null && dataInicio.isAfter(limite15Dias)
                         ? dataInicio
                         : limite15Dias;
 
-        Specification<Pedido> filtros = (root, query, criteriaBuilder) ->
-                criteriaBuilder.greaterThanOrEqualTo(
-                        root.get("momentoPedido"),
-                        inicioFiltro
-                );
+        Specification<Pedido> filtros = (root, query, cb) ->
+                cb.greaterThanOrEqualTo(root.get("momentoPedido"), inicioFiltro);
 
         if (status != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("status"), status));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.equal(root.get("status"), status)
+            );
         } else {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
+            filtros = filtros.and((root, query, cb) ->
                     root.get("status").in(
                             StatusPedido.AGUARDANDO_APROVACAO,
                             StatusPedido.EM_PREPARO,
@@ -768,17 +797,43 @@ public class PedidoService {
         }
 
         if (tipoPedido != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("tipoPedido"), tipoPedido));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.equal(root.get("tipoPedido"), tipoPedido)
+            );
         }
 
         if (dataFim != null) {
-            filtros = filtros.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.lessThanOrEqualTo(root.get("momentoPedido"), dataFim));
+            filtros = filtros.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("momentoPedido"), dataFim)
+            );
         }
 
-        return pedidoRepository.findAll(filtros, pageable)
-                .map(this::converterParaResumoResponseDTO);
+        Page<PedidoResumoResponseDTO> resultado =
+                pedidoRepository.findAll(filtros, pageable)
+                        .map(this::converterParaResumoResponseDTO);
+
+        log.info(
+                "[PAINEL_ATIVO] total={}, pagina={}, tamanho={}, sort={}, filtroStatus={}, filtroInicio={}, duracao={}ms",
+                resultado.getTotalElements(),
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort(),
+                status,
+                inicioFiltro,
+                System.currentTimeMillis() - inicio
+        );
+
+        if (!resultado.isEmpty()) {
+            log.debug(
+                    "[PAINEL_ATIVO] primeiro={}, ultimo={}",
+                    resultado.getContent().get(0).getMomentoPedido(),
+                    resultado.getContent().get(resultado.getContent().size() - 1).getMomentoPedido()
+            );
+        } else {
+            log.debug("[PAINEL_ATIVO] Nenhum pedido ativo retornado — filtroInicio={}", inicioFiltro);
+        }
+
+        return resultado;
     }
 
     @Transactional(readOnly = true)
@@ -790,15 +845,14 @@ public class PedidoService {
     @Transactional(readOnly = true)
     public PedidoDTO buscarPedidoDTOCompletoPorId(Long id) {
         Pedido pedido = buscarPedidoCompletoEntityById(id);
-
         carregarAdicionaisDosItens(pedido);
-
         return converterParaPedidoDTO(pedido);
     }
 
     @Transactional(readOnly = true)
     public List<PedidoResponseDTO> buscarPedidoByMesa(Integer numeroMesa) {
         List<Pedido> pedidos = pedidoRepository.findByNumeroMesa(numeroMesa);
+
         List<PedidoResponseDTO> response = new ArrayList<>();
 
         for (Pedido pedido : pedidos) {
@@ -814,20 +868,16 @@ public class PedidoService {
         validarDescontoManual(dto.getDescontoManualPercentual(), dto.getDescontoManualValor());
 
         Pedido pedido = buscarPedidoEntityById(id);
-
         validarPedidoEditavel(pedido);
 
         pedido.setTipoPedido(dto.getTipoPedido());
         pedido.setNumeroMesa(dto.getNumeroMesa());
-
         pedido.setNomeCliente(dto.getNomeCliente());
         pedido.setTelefoneCliente(limparTelefone(dto.getTelefoneCliente()));
-
         pedido.setBairroEntrega(dto.getBairroEntrega());
         pedido.setRuaEntrega(dto.getRuaEntrega());
         pedido.setNumeroCasa(dto.getNumeroCasa());
         pedido.setComplemento(dto.getComplemento());
-
         pedido.setPrevisaoRetirada(dto.getPrevisaoRetirada());
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
@@ -863,15 +913,14 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
     public PedidoResponseDTO atualizarStatusPedido(Long id, AtualizarStatusPedidoDTO dto) {
         if (dto == null || dto.getStatus() == null) {
-            log.warn("Falha ao atualizar status do pedido: pedidoId={}, motivo=status ausente", id);
+            log.warn("[STATUS] Falha: pedidoId={}, motivo=status ausente", id);
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Status não pode ser null"
@@ -884,7 +933,7 @@ public class PedidoService {
         StatusPedido statusAtual = pedido.getStatus();
 
         log.info(
-                "Atualizando status do pedido: pedidoId={}, statusAtual={}, statusSolicitado={}",
+                "[STATUS] Atualizando: pedidoId={}, statusAtual={}, statusSolicitado={}",
                 id,
                 statusAtual,
                 novoStatus
@@ -902,21 +951,23 @@ public class PedidoService {
             Pedido pedidoAtualizado = pedidoRepository.save(pedido);
 
             log.info(
-                    "Status do pedido atualizado com sucesso: pedidoId={}, statusAnterior={}, statusNovo={}",
+                    "[STATUS] Atualizado com sucesso: pedidoId={}, {} -> {}",
                     id,
                     statusAtual,
                     novoStatus
             );
 
             return converterParaResponseDTO(pedidoAtualizado);
+
         } catch (RuntimeException ex) {
             log.warn(
-                    "Falha ao atualizar status do pedido: pedidoId={}, statusAtual={}, statusSolicitado={}, motivo={}",
+                    "[STATUS] Falha: pedidoId={}, {} -> {}, motivo={}",
                     id,
                     statusAtual,
                     novoStatus,
                     ex.getMessage()
             );
+
             throw ex;
         }
     }
@@ -936,9 +987,7 @@ public class PedidoService {
 
         pedido.setFormaPagamento(dto.getFormaPagamento());
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
@@ -961,9 +1010,7 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
@@ -981,9 +1028,7 @@ public class PedidoService {
 
         pagamentoService.resetarPagamentoParaPendente(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
@@ -1002,9 +1047,7 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
@@ -1039,13 +1082,15 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
-    public PedidoResponseDTO atualizarQuantidadeItem(Long pedidoId, Long itemId, Integer quantidade) {
+    public PedidoResponseDTO atualizarQuantidadeItem(
+            Long pedidoId,
+            Long itemId,
+            Integer quantidade
+    ) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
 
         validarPedidoEditavel(pedido);
@@ -1056,13 +1101,15 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
-    public PedidoResponseDTO atualizarObservacaoItem(Long pedidoId, Long itemId, String observacao) {
+    public PedidoResponseDTO atualizarObservacaoItem(
+            Long pedidoId,
+            Long itemId,
+            String observacao
+    ) {
         Pedido pedido = buscarPedidoEntityById(pedidoId);
 
         validarPedidoEditavel(pedido);
@@ -1071,9 +1118,7 @@ public class PedidoService {
 
         item.setObservacao(observacao);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
 
     @Transactional
@@ -1112,9 +1157,6 @@ public class PedidoService {
 
         recalcularValores(pedido);
 
-        Pedido pedidoAtualizado = pedidoRepository.save(pedido);
-
-        return converterParaResponseDTO(pedidoAtualizado);
+        return converterParaResponseDTO(pedidoRepository.save(pedido));
     }
-
 }

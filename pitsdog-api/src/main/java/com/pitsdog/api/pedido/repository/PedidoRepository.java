@@ -17,6 +17,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long>, JpaSpecif
 
     Long countByTelefoneClienteAndStatus(String telefoneCliente, StatusPedido status);
 
+    Long countByStatus(StatusPedido status);
+
     Optional<Pedido> findByNumeroMesaAndStatus(Integer numeroMesa, StatusPedido status);
 
     @EntityGraph(attributePaths = {
