@@ -6,13 +6,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
@@ -55,10 +58,17 @@ public class SupabaseStorageService {
         this.supabaseUrl = removerBarraFinal(supabaseUrl);
         this.supabaseServiceRoleKey = supabaseServiceRoleKey;
         this.bucket = bucket;
+
+        log.info(
+                "SupabaseStorageService iniciado. supabaseUrl={}, bucket={}",
+                this.supabaseUrl,
+                this.bucket
+        );
     }
 
     public String uploadImagem(MultipartFile file, String folder) {
         validarArquivo(file);
+        validarConfiguracoes();
 
         String objectPath = gerarCaminhoArquivo(file, folder);
         String uploadUrl = montarUploadUrl(objectPath);
@@ -68,7 +78,12 @@ public class SupabaseStorageService {
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
-            throw new ImageUploadException("Erro ao ler o arquivo de imagem.");
+            log.error("Erro ao ler bytes do arquivo enviado.", e);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Erro ao ler o arquivo de imagem."
+            );
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -79,45 +94,129 @@ public class SupabaseStorageService {
 
         HttpEntity<byte[]> requestEntity = new HttpEntity<>(bytes, headers);
 
+        log.info(
+                "Iniciando upload no Supabase Storage. bucket={}, objectPath={}, contentType={}, tamanho={} bytes",
+                bucket,
+                objectPath,
+                file.getContentType(),
+                file.getSize()
+        );
+
         try {
             ResponseEntity<String> response = restTemplate.exchange(
                     uploadUrl,
-                    HttpMethod.PUT,
+                    HttpMethod.POST,
                     requestEntity,
                     String.class
             );
 
+            log.info(
+                    "Resposta do Supabase Storage. status={}, body={}",
+                    response.getStatusCode(),
+                    response.getBody()
+            );
+
             if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new ImageUploadException("Erro ao enviar imagem para o storage.");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Erro ao enviar imagem para o Supabase Storage."
+                );
             }
 
-            return gerarUrlPublica(objectPath);
+            String publicUrl = gerarUrlPublica(objectPath);
+
+            log.info("URL pública gerada para imagem: {}", publicUrl);
+
+            return publicUrl;
+
+        } catch (HttpStatusCodeException e) {
+            log.error(
+                    "Erro HTTP do Supabase Storage. status={}, body={}",
+                    e.getStatusCode(),
+                    e.getResponseBodyAsString(),
+                    e
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Erro no Supabase Storage: " + e.getStatusCode()
+            );
 
         } catch (RestClientException e) {
-            log.error("Erro ao fazer upload no Supabase Storage: {}", e.getMessage());
-            throw new ImageUploadException("Erro ao enviar imagem para o storage.");
+            log.error("Erro de comunicação com Supabase Storage.", e);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Erro de comunicação com o Supabase Storage."
+            );
+
+        } catch (ResponseStatusException e) {
+            throw e;
+
+        } catch (Exception e) {
+            log.error("Erro inesperado ao fazer upload no Supabase Storage.", e);
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro inesperado ao enviar imagem para o storage."
+            );
+        }
+    }
+
+    private void validarConfiguracoes() {
+        if (!StringUtils.hasText(supabaseUrl)) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "SUPABASE_URL não configurada."
+            );
+        }
+
+        if (!StringUtils.hasText(supabaseServiceRoleKey)) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "SUPABASE_SERVICE_ROLE_KEY não configurada."
+            );
+        }
+
+        if (!StringUtils.hasText(bucket)) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "SUPABASE_STORAGE_BUCKET não configurado."
+            );
         }
     }
 
     private void validarArquivo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new ImageValidationException("Nenhum arquivo enviado.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Nenhum arquivo enviado."
+            );
         }
 
         String contentType = file.getContentType();
 
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
-            throw new ImageValidationException("Formato de imagem inválido. Envie apenas JPEG ou PNG.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Formato de imagem inválido. Envie apenas JPEG ou PNG."
+            );
         }
 
         if (file.getSize() > MAX_SIZE_BYTES) {
-            throw new ImageValidationException("Imagem muito grande. O limite é 5MB.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Imagem muito grande. O limite é 5MB."
+            );
         }
 
         String originalFilename = file.getOriginalFilename();
 
         if (!StringUtils.hasText(originalFilename) || !temExtensaoValida(originalFilename)) {
-            throw new ImageValidationException("Extensão inválida. Envie apenas .jpg, .jpeg ou .png.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Extensão inválida. Envie apenas .jpg, .jpeg ou .png."
+            );
         }
     }
 
@@ -205,17 +304,5 @@ public class SupabaseStorageService {
         return value.endsWith("/")
                 ? value.substring(0, value.length() - 1)
                 : value;
-    }
-
-    public static class ImageValidationException extends RuntimeException {
-        public ImageValidationException(String message) {
-            super(message);
-        }
-    }
-
-    public static class ImageUploadException extends RuntimeException {
-        public ImageUploadException(String message) {
-            super(message);
-        }
     }
 }

@@ -1,8 +1,6 @@
 package com.pitsdog.api.upload.exception;
 
 import com.pitsdog.api.upload.service.ImagemService.EntidadeNaoEncontradaException;
-import com.pitsdog.api.upload.service.SupabaseStorageService.ImageUploadException;
-import com.pitsdog.api.upload.service.SupabaseStorageService.ImageValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,29 +13,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class ImagemExceptionHandler {
 
-    @ExceptionHandler(ImageValidationException.class)
-    public ResponseEntity<Map<String, Object>> handleImageValidation(ImageValidationException ex) {
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(body(HttpStatus.BAD_REQUEST, ex.getMessage()));
-    }
-
-    @ExceptionHandler(ImageUploadException.class)
-    public ResponseEntity<Map<String, Object>> handleImageUpload(ImageUploadException ex) {
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(body(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage()));
-    }
-
     @ExceptionHandler(EntidadeNaoEncontradaException.class)
-    public ResponseEntity<Map<String, Object>> handleEntidadeNaoEncontrada(EntidadeNaoEncontradaException ex) {
+    public ResponseEntity<Map<String, Object>> handleEntidadeNaoEncontrada(
+            EntidadeNaoEncontradaException ex
+    ) {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(body(HttpStatus.NOT_FOUND, ex.getMessage()));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<Map<String, Object>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSize(
+            MaxUploadSizeExceededException ex
+    ) {
         return ResponseEntity
                 .status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(body(
