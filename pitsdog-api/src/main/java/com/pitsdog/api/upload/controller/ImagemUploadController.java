@@ -1,5 +1,7 @@
 package com.pitsdog.api.upload.controller;
 
+import com.pitsdog.api.categoria.dto.CategoriaResponseDTO;
+import com.pitsdog.api.categoria.service.CategoriaService;
 import com.pitsdog.api.upload.service.ImagemService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,9 +17,27 @@ import java.util.Map;
 public class ImagemUploadController {
 
     private final ImagemService imagemService;
+    private final CategoriaService categoriaService;
 
-    public ImagemUploadController(ImagemService imagemService) {
+    public ImagemUploadController(
+            ImagemService imagemService,
+            CategoriaService categoriaService
+    ) {
         this.imagemService = imagemService;
+        this.categoriaService = categoriaService;
+    }
+
+    @PostMapping(
+            value = "/categorias/{id}/imagem",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<CategoriaResponseDTO> uploadImagemCategoria(
+            @PathVariable Long id,
+            @RequestParam("imagem") MultipartFile imagem
+    ) {
+        return ResponseEntity.ok(
+                categoriaService.updateImagemCategoria(id, imagem)
+        );
     }
 
     @PostMapping(
@@ -28,9 +48,9 @@ public class ImagemUploadController {
             @PathVariable Long id,
             @RequestParam("imagem") MultipartFile imagem
     ) {
-        String imageUrl = imagemService.atualizarImagemProduto(id, imagem);
+        String imagemUrl = imagemService.atualizarImagemProduto(id, imagem);
 
-        return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
+        return ResponseEntity.ok(Map.of("imagemUrl", imagemUrl));
     }
 
     @PostMapping(
@@ -41,9 +61,8 @@ public class ImagemUploadController {
             @PathVariable Long id,
             @RequestParam("imagem") MultipartFile imagem
     ) {
-        String imageUrl = imagemService.atualizarImagemCombo(id, imagem);
+        String imagemUrl = imagemService.atualizarImagemCombo(id, imagem);
 
-        return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
+        return ResponseEntity.ok(Map.of("imagemUrl", imagemUrl));
     }
-
 }

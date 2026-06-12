@@ -59,19 +59,6 @@ public class AdminCategoriaController {
         );
     }
 
-    @PostMapping(
-            value = "/{id}/imagem",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
-    public ResponseEntity<CategoriaResponseDTO> uploadImagem(
-            @PathVariable Long id,
-            @RequestParam("imagem") MultipartFile imagem
-    ) {
-        return ResponseEntity.ok(
-                categoriaService.updateImagemCategoria(id, imagem)
-        );
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         categoriaService.deleteCategoria(id);

@@ -6,6 +6,8 @@ import com.pitsdog.api.categoria.entity.Categoria;
 import com.pitsdog.api.categoria.repository.CategoriaRepository;
 import com.pitsdog.api.pedido.enums.StatusPedido;
 import com.pitsdog.api.upload.service.SupabaseStorageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import java.util.List;
 
 @Service
 public class CategoriaService {
+
+    private static final Logger log = LoggerFactory.getLogger(CategoriaService.class);
 
     private static final String PASTA_CATEGORIAS = "categorias";
 
@@ -88,7 +92,7 @@ public class CategoriaService {
     }
 
     /**
-     * Novo fluxo com suporte a imagem via multipart/form-data.
+     * Novo fluxo com suporte opcional a imagem via multipart/form-data.
      */
     @Transactional
     public CategoriaResponseDTO createCategoria(
@@ -103,10 +107,20 @@ public class CategoriaService {
         categoria.setAtivo(dto.ativo());
 
         if (imagem != null && !imagem.isEmpty()) {
+            log.info(
+                    "Criando categoria com imagem. nomeCategoria={}, nomeArquivo={}, tipo={}, tamanho={} bytes",
+                    dto.nome(),
+                    imagem.getOriginalFilename(),
+                    imagem.getContentType(),
+                    imagem.getSize()
+            );
+
             String imagemUrl = supabaseStorageService.uploadImagem(imagem, PASTA_CATEGORIAS);
             categoria.setImagemUrl(imagemUrl);
+
+            log.info("Imagem enviada ao criar categoria. imagemUrl={}", imagemUrl);
+
         } else if (dto.imagemUrl() != null && !dto.imagemUrl().isBlank()) {
-            // Mantém compatibilidade com o fluxo antigo, caso já envie URL pronta.
             categoria.setImagemUrl(dto.imagemUrl());
         }
 
@@ -127,12 +141,7 @@ public class CategoriaService {
     }
 
     /**
-     * Novo fluxo com suporte a imagem via multipart/form-data.
-     *
-     * Regra:
-     * - se vier imagem nova, faz upload e substitui a URL;
-     * - se não vier imagem, mantém a imagem atual;
-     * - se o DTO vier com imagemUrl preenchida, mantém compatibilidade com fluxo antigo.
+     * Novo fluxo com suporte opcional a imagem via multipart/form-data.
      */
     @Transactional
     public CategoriaResponseDTO updateCategoria(
@@ -148,8 +157,19 @@ public class CategoriaService {
         categoria.setAtivo(dto.ativo());
 
         if (imagem != null && !imagem.isEmpty()) {
+            log.info(
+                    "Atualizando categoria id={} com nova imagem. nomeArquivo={}, tipo={}, tamanho={} bytes",
+                    id,
+                    imagem.getOriginalFilename(),
+                    imagem.getContentType(),
+                    imagem.getSize()
+            );
+
             String imagemUrl = supabaseStorageService.uploadImagem(imagem, PASTA_CATEGORIAS);
             categoria.setImagemUrl(imagemUrl);
+
+            log.info("Imagem atualizada na categoria id={}. imagemUrl={}", id, imagemUrl);
+
         } else if (dto.imagemUrl() != null && !dto.imagemUrl().isBlank()) {
             categoria.setImagemUrl(dto.imagemUrl());
         }
@@ -160,8 +180,9 @@ public class CategoriaService {
     }
 
     /**
-     * Endpoint separado para atualizar somente a imagem da categoria.
-     * Útil para:
+     * Atualiza somente a imagem da categoria.
+     *
+     * Usado pela rota:
      * POST /admin/categorias/{id}/imagem
      */
     @Transactional
@@ -178,13 +199,66 @@ public class CategoriaService {
             );
         }
 
-        String imagemUrl = supabaseStorageService.uploadImagem(imagem, PASTA_CATEGORIAS);
+        log.info(
+                "Upload de imagem recebido para categoria id={}. nomeOriginal={}, contentType={}, tamanho={} bytes",
+                id,
+                imagem.getOriginalFilename(),
+                imagem.getContentType(),
+                imagem.getSize()
+        );
 
-        categoria.setImagemUrl(imagemUrl);
+        try {
+            String imagemUrl = supabaseStorageService.uploadImagem(imagem, PASTA_CATEGORIAS);
 
-        Categoria categoriaAtualizada = categoriaRepository.save(categoria);
+            if (imagemUrl == null || imagemUrl.isBlank()) {
+                log.error("SupabaseStorageService retornou imagemUrl vazia para categoria id={}", id);
 
-        return toResponseDTO(categoriaAtualizada);
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Upload realizado, mas a URL da imagem não foi gerada."
+                );
+            }
+
+            log.info(
+                    "Upload de imagem finalizado para categoria id={}. imagemUrl={}",
+                    id,
+                    imagemUrl
+            );
+
+            categoria.setImagemUrl(imagemUrl);
+
+            Categoria categoriaAtualizada = categoriaRepository.save(categoria);
+
+            log.info(
+                    "Categoria id={} atualizada com imagemUrl no banco.",
+                    categoriaAtualizada.getId()
+            );
+
+            return toResponseDTO(categoriaAtualizada);
+
+        } catch (ResponseStatusException e) {
+            log.error(
+                    "Erro ao atualizar imagem da categoria id={}. status={}, motivo={}",
+                    id,
+                    e.getStatusCode(),
+                    e.getReason(),
+                    e
+            );
+
+            throw e;
+
+        } catch (Exception e) {
+            log.error(
+                    "Erro inesperado ao atualizar imagem da categoria id={}",
+                    id,
+                    e
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro ao atualizar imagem da categoria."
+            );
+        }
     }
 
     @Transactional
