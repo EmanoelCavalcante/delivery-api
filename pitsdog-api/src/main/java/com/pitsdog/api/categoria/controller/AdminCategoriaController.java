@@ -1,13 +1,14 @@
 package com.pitsdog.api.categoria.controller;
 
-
 import com.pitsdog.api.categoria.dto.AtualizarStatusCategoriaDTO;
 import com.pitsdog.api.categoria.dto.CategoriaRequestDTO;
 import com.pitsdog.api.categoria.dto.CategoriaResponseDTO;
 import com.pitsdog.api.categoria.service.CategoriaService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -22,7 +23,7 @@ public class AdminCategoriaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CategoriaResponseDTO>> listAll(){
+    public ResponseEntity<List<CategoriaResponseDTO>> listAll() {
         return ResponseEntity.ok(categoriaService.listAllCategorias());
     }
 
@@ -30,7 +31,6 @@ public class AdminCategoriaController {
     public ResponseEntity<CategoriaResponseDTO> create(
             @RequestBody CategoriaRequestDTO dto
     ) {
-
         CategoriaResponseDTO createdCategoria =
                 categoriaService.createCategoria(dto);
 
@@ -42,8 +42,8 @@ public class AdminCategoriaController {
     @PutMapping("/{id}")
     public ResponseEntity<CategoriaResponseDTO> update(
             @PathVariable Long id,
-            @RequestBody CategoriaRequestDTO dto){
-
+            @RequestBody CategoriaRequestDTO dto
+    ) {
         return ResponseEntity.ok(
                 categoriaService.updateCategoria(id, dto)
         );
@@ -53,12 +53,27 @@ public class AdminCategoriaController {
     public ResponseEntity<CategoriaResponseDTO> updateStatus(
             @PathVariable Long id,
             @RequestBody AtualizarStatusCategoriaDTO dto
-    ){
-        return ResponseEntity.ok(categoriaService.updateStatus(id, dto.ativo()));
+    ) {
+        return ResponseEntity.ok(
+                categoriaService.updateStatus(id, dto.ativo())
+        );
+    }
+
+    @PostMapping(
+            value = "/{id}/imagem",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<CategoriaResponseDTO> uploadImagem(
+            @PathVariable Long id,
+            @RequestParam("imagem") MultipartFile imagem
+    ) {
+        return ResponseEntity.ok(
+                categoriaService.updateImagemCategoria(id, imagem)
+        );
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id){
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         categoriaService.deleteCategoria(id);
 
         return ResponseEntity.noContent().build();
