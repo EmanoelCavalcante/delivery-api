@@ -9,7 +9,7 @@
 ![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
 ![Status](https://img.shields.io/badge/Status-Em%20desenvolvimento-yellow?style=for-the-badge)
 
-API RESTful real desenvolvida em **Java 21 com Spring Boot** para gerenciamento do sistema de delivery da hamburgueria **PitsDog**.
+API RESTful real desenvolvida em **Java 21 com Spring Boot** para gerenciamento do sistema de delivery para lanchonetes e hamburguerias.
 
 O projeto foi criado com foco em **organização, escalabilidade, boas práticas de backend e uso real em produção**, integrando site público, painel administrativo, banco PostgreSQL no Supabase, upload de imagens com Supabase Storage e deploy na Railway.
 
